@@ -1,0 +1,14 @@
+# Ignoruj citlivé soubory / Ignore sensitive files
+.env
+config.ini
+*.token
+*.key
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.swp
