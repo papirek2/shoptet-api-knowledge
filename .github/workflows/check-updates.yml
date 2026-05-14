@@ -8,6 +8,10 @@ on:
     - cron: '0 8 * * 1'  # CZ: Každé pondělí v 8:00 UTC / EN: Every Monday at 8:00 UTC
   workflow_dispatch:       # CZ: Lze spustit ručně / EN: Can be triggered manually
 
+permissions:
+  contents: write
+  issues: write
+
 jobs:
   check-updates:
     runs-on: ubuntu-latest
