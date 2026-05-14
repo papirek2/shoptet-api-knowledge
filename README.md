@@ -1,4 +1,4 @@
-# Shoptet API — Claude Code Knowledge Base
+# Shoptet API — Claude Code Knowledge Base + MCP Server
 
 > 🇨🇿 [Česká verze níže](#česky)
 
@@ -6,7 +6,99 @@
 
 ## English
 
-A comprehensive knowledge base for [Shoptet API](https://api.docs.shoptet.com/shoptet-api/openapi) designed for use with **Claude Code** (and compatible AI coding assistants). Covers all 195 endpoints across 68 resource groups with precise request/response schemas, required fields, data types, and PHP code examples.
+A comprehensive knowledge base and MCP server for [Shoptet API](https://api.docs.shoptet.com/shoptet-api/openapi), designed for **Claude Code** and compatible AI assistants.
+
+**Two ways to use this repo:**
+
+| | CLAUDE.md Knowledge Base | MCP Server |
+|---|---|---|
+| **What it is** | Context file loaded into AI conversation | Live API server — Claude calls real endpoints |
+| **What it does** | Teaches AI about Shoptet API (schemas, examples, gotchas) | Executes real Shoptet API calls for you |
+| **Requires** | Nothing | Node.js 18+, Shoptet Private API token |
+| **Best for** | Writing PHP code, learning the API | Browsing products/orders, automating tasks |
+| **Setup** | Copy/reference CLAUDE.md | `cd mcp && npm install && npm run setup` |
+
+---
+
+## MCP Server (live API access)
+
+The MCP server exposes all **312 Shoptet API endpoints** as callable tools. Claude can list orders, create products, update stock — all in real time.
+
+### Quick start
+
+```bash
+# 1. Clone
+git clone https://github.com/papirek2/shoptet-api-knowledge.git ~/shoptet-api-knowledge
+
+# 2. Install dependencies
+cd ~/shoptet-api-knowledge/mcp && npm install
+
+# 3. Setup — enter your Private API token (stored locally, never committed)
+npm run setup
+
+# 4. Test the server
+node server.js
+# → ✅ Shoptet MCP server running (312 tools)
+```
+
+### Requirements
+
+- Node.js 18+
+- Shoptet Premium account with Private API token
+  - Find it in: Shop admin → API → API Access → Private API token
+
+### Add to Claude Code
+
+After running `npm run setup`, add the MCP server to your Claude Code config.
+
+**Linux:** `~/.config/Claude/claude_desktop_config.json`  
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "shoptet-mcp": {
+      "command": "node",
+      "args": ["/absolute/path/to/shoptet-api-knowledge/mcp/server.js"]
+    }
+  }
+}
+```
+
+The setup script generates the exact snippet with the correct path for your system — just copy it.
+
+### Available tools (312 total)
+
+| Tool | Method | Endpoint |
+|------|--------|----------|
+| `list_orders` | GET | `/api/orders` |
+| `get_orders_by_code` | GET | `/api/orders/{code}` |
+| `update_orders_status_by_code` | PATCH | `/api/orders/{code}/status` |
+| `list_products` | GET | `/api/products` |
+| `get_products_by_guid` | GET | `/api/products/{guid}` |
+| `update_products_by_guid` | PATCH | `/api/products/{guid}` |
+| `update_stocks_movements_by_stockId` | PATCH | `/api/stocks/{stockId}/movements` |
+| `list_customers` | GET | `/api/customers` |
+| `create_webhooks` | POST | `/api/webhooks` |
+| `get_system_jobs_by_jobId` | GET | `/api/system/jobs/{jobId}` |
+
+Full list: run the server and Claude discovers all 312 tools automatically.
+
+### Security
+
+- Token stored in `mcp/.shoptet-token` (chmod 600, owner-only)
+- `.shoptet-token` is in `.gitignore` — **never committed**
+- Token only sent to `api.myshoptet.com` — never to Anthropic servers
+- MCP communicates via stdio (local process), not network
+
+See [mcp/README.md](mcp/README.md) for full MCP documentation.
+
+---
+
+## CLAUDE.md Knowledge Base (AI context)
+
+Covers all 312 endpoints (195 documented in structured docs) with precise request/response schemas, required fields, data types, and PHP code examples.
 
 ### What's inside
 
@@ -68,21 +160,96 @@ cd .shoptet-api && git pull
 
 ### Authentication
 
-This knowledge base covers **Private API (Premium)** access using `Shoptet-Private-API-Token` header. OAuth addon flow is documented but PHP examples focus on the token-based approach.
+Covers **Private API (Premium)** access using `Shoptet-Private-API-Token` header. OAuth addon flow is documented but PHP examples focus on the token-based approach.
 
 ### API version
 
-Based on Shoptet OpenAPI spec version `928c0ee`. When Shoptet releases updates, we update this repo and bump the version in `CLAUDE.md`.
+Based on Shoptet OpenAPI spec version `928c0ee`. When Shoptet releases updates, we update this repo.
 
 ### Contributing
 
-Found an error or missing detail? Please open an issue or PR. Shoptet's API evolves — keeping this accurate matters.
+Found an error or missing detail? Please open an issue or PR.
 
 ---
 
 ## Česky
 
-Kompletní znalostní báze [Shoptet API](https://api.docs.shoptet.com/shoptet-api/openapi) pro **Claude Code** (a kompatibilní AI asistenty). Pokrývá všech 195 endpointů ve 68 skupinách prostředků s přesnými schématy požadavků/odpovědí, povinnými poli, datovými typy a příklady v PHP.
+Kompletní znalostní báze a MCP server pro [Shoptet API](https://api.docs.shoptet.com/shoptet-api/openapi), navrženo pro **Claude Code** a kompatibilní AI asistenty.
+
+**Dvě možnosti použití:**
+
+| | CLAUDE.md znalostní báze | MCP Server |
+|---|---|---|
+| **Co to je** | Kontextový soubor načtený do AI konverzace | Live API server — Claude volá skutečné endpointy |
+| **Co umí** | Naučí AI Shoptet API (schémata, příklady, pasti) | Provádí skutečná volání Shoptet API |
+| **Vyžaduje** | Nic | Node.js 18+, Shoptet Private API token |
+| **Nejlepší pro** | Psaní PHP kódu, učení se API | Procházení produktů/objednávek, automatizace |
+| **Setup** | Zkopíruj/odkáž CLAUDE.md | `cd mcp && npm install && npm run setup` |
+
+---
+
+## MCP Server (live přístup k API)
+
+MCP server zpřístupňuje všech **312 Shoptet API endpointů** jako volatelné nástroje. Claude může zobrazovat objednávky, vytvářet produkty, aktualizovat sklad — vše v reálném čase.
+
+### Rychlý start
+
+```bash
+# 1. Naklonuj
+git clone https://github.com/papirek2/shoptet-api-knowledge.git ~/shoptet-api-knowledge
+
+# 2. Nainstaluj závislosti
+cd ~/shoptet-api-knowledge/mcp && npm install
+
+# 3. Setup — zadej Private API token (uložen lokálně, nikdy necommitován)
+npm run setup
+
+# 4. Otestuj server
+node server.js
+# → ✅ Shoptet MCP server running (312 tools)
+```
+
+### Požadavky
+
+- Node.js 18+
+- Shoptet Premium účet s Private API tokenem
+  - Najdeš ho: Administrace eshopu → API → Přístupy k API → Private API token
+
+### Přidání do Claude Code
+
+Po `npm run setup` přidej MCP server do konfigurace Claude Code.
+
+**Linux:** `~/.config/Claude/claude_desktop_config.json`  
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "shoptet-mcp": {
+      "command": "node",
+      "args": ["/absolutni/cesta/k/shoptet-api-knowledge/mcp/server.js"]
+    }
+  }
+}
+```
+
+Setup skript vygeneruje přesný snippet se správnou cestou pro tvůj systém — stačí ho zkopírovat.
+
+### Bezpečnost
+
+- Token uložen v `mcp/.shoptet-token` (chmod 600, jen vlastník)
+- `.shoptet-token` je v `.gitignore` — **nikdy se necommituje**
+- Token odesílán pouze na `api.myshoptet.com` — nikdy na servery Anthropic
+- MCP komunikuje přes stdio (lokální proces), ne sítí
+
+Viz [mcp/README.md](mcp/README.md) pro úplnou MCP dokumentaci.
+
+---
+
+## Znalostní báze CLAUDE.md (AI kontext)
+
+Pokrývá všech 312 endpointů (195 v strukturovaných docs) s přesnými schématy, povinnými poli, datovými typy a PHP příklady.
 
 ### Co je uvnitř
 
@@ -132,24 +299,19 @@ git submodule add https://github.com/papirek2/shoptet-api-knowledge.git .shoptet
 Přidej do `CLAUDE.md`:
 ```markdown
 ## Shoptet API znalostní báze
-Přečti .shoptet-api/CLAUDE.md pro kompletní dokumentaci Shoptet API a pak načti příslušný soubor z docs/ pro konkrétní doménu, na které pracuješ.
+Přečti .shoptet-api/CLAUDE.md pro kompletní dokumentaci Shoptet API a pak načti příslušný soubor z docs/ pro konkrétní doménu.
 ```
 
 ### Aktualizace
 
 ```bash
-# Pokud používáš git clone nebo submodule
 cd .shoptet-api && git pull
 ```
 
-### Autentizace
-
-Tato znalostní báze pokrývá přístup přes **Private API (Premium)** pomocí hlavičky `Shoptet-Private-API-Token`. OAuth addon flow je dokumentován, ale PHP příklady se soustřeďují na přístup přes token.
-
 ### Verze API
 
-Vychází z Shoptet OpenAPI spec verze `928c0ee`. Při aktualizacích Shoptet API aktualizujeme i toto repo a bumbneme verzi v `CLAUDE.md`.
+Vychází z Shoptet OpenAPI spec verze `928c0ee`.
 
 ### Přispívání
 
-Našel jsi chybu nebo chybí detail? Otevři issue nebo PR. Shoptet API se vyvíjí — udržovat toto aktuální je důležité.
+Našel jsi chybu nebo chybí detail? Otevři issue nebo PR.
