@@ -1,0 +1,8 @@
+# CZ: Token NIKDY necommituj! / EN: NEVER commit the token!
+.shoptet-token
+
+# Dependencies
+node_modules/
+
+# Generated config snippet (contains local paths)
+claude-config-snippet.json

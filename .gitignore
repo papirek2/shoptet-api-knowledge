@@ -12,3 +12,8 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# MCP - token nikdy necommituj / never commit the token
+mcp/.shoptet-token
+mcp/node_modules/
+mcp/claude-config-snippet.json

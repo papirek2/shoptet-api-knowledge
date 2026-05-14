@@ -1,0 +1,21 @@
+{
+  "name": "shoptet-mcp",
+  "version": "1.0.0",
+  "description": "Shoptet API MCP server — 312 tools covering all Shoptet API endpoints / 312 nástrojů pokrývající všechny Shoptet API endpointy",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "setup": "node setup.js",
+    "generate": "node generate.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["shoptet", "mcp", "claude", "api", "ecommerce", "czech"],
+  "license": "MIT"
+}
