@@ -6,7 +6,7 @@ name: Check Shoptet API Updates
 on:
   schedule:
     - cron: '0 8 * * 1'  # CZ: Každé pondělí v 8:00 UTC / EN: Every Monday at 8:00 UTC
-  workflow_dispatch:       # CZ: Možnost spustit ručně / EN: Can also be triggered manually
+  workflow_dispatch:       # CZ: Lze spustit ručně / EN: Can be triggered manually
 
 jobs:
   check-updates:
