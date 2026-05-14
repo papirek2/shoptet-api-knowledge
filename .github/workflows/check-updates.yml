@@ -22,7 +22,7 @@ jobs:
 
       - name: Download current Shoptet OpenAPI spec
         run: |
-          curl -sSL "https://raw.githubusercontent.com/shoptet/developers/master/openapi/openapi.yaml" \
+          curl -sSL "https://api.docs.shoptet.com/_bundle/Shoptet%20API/openapi.yaml?download" \
             -o openapi-new.yaml \
             --fail \
             --max-time 30
