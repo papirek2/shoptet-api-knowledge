@@ -455,6 +455,40 @@ try {
 }
 ```
 
+### Přiřazení filtračních parametrů k produktu
+
+```php
+// CZ: values = pole stringů (valueIndex), NE pole objektů!
+// EN: values = array of strings (valueIndex), NOT array of objects!
+$api->patch('/api/products/abc123-guid', [
+    'data' => [
+        'filteringParameters' => [
+            ['code' => 'medicinalni-houby', 'values' => ['reishi', 'chaga', 'hericium']],
+            ['code' => 'forma-produktu',    'values' => ['med']],
+            ['code' => 'hmotnost',          'values' => ['200']],
+        ]
+    ]
+]);
+// POZOR: přiřazení přepíše všechny existující filtrační parametry produktu
+```
+
+**Vytvoření globálního parametru:**
+```php
+// valueIndex musí být POUZE [a-zA-Z0-9\-] — žádné háčky! priority min = 1
+$api->post('/api/products/filtering-parameters', [
+    'data' => [
+        'name' => 'Medicinální houby',
+        'code' => 'medicinalni-houby',
+        'priority' => 1,
+        'values' => [
+            ['name' => 'Reishi (Lesklokorka lesklá)', 'valueIndex' => 'reishi', 'priority' => 1],
+            ['name' => 'Chaga (Rezavec šikmý)',        'valueIndex' => 'chaga',  'priority' => 2],
+        ]
+    ]
+]);
+// DELETE /api/products/filtering-parameters/{code} → smaže i vazby na produkty
+```
+
 ---
 
 ## Deprecated endpointy / Deprecated endpoints

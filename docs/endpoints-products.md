@@ -229,6 +229,12 @@ Vrátí `jobId` → čekej na webhook `job:finished`.
 
 Max 100 obrázků na jedno volání.
 
+**⚠️ Limit velikosti obrázků:** Shoptet async job selhává tiše při stahování velkých souborů. V praxi:
+- JPEG do ~6 MB: funguje spolehlivě
+- PNG nad ~10 MB: job selže, obrázek se nenahraje (žádná chybová hláška!)
+- **Řešení:** Velké PNG konvertuj před nahráním: `convert input.png -resize 2000x2000\> -quality 90 output.jpg`
+- Výsledek: 12–22 MB PNG → ~200 KB JPEG bez viditelné ztráty kvality
+
 ### DELETE /api/products/{guid}/images/{gallery}/{imageName}
 
 **Query:** `removeReference` (boolean) — odstraní i referenci z varianty, default false
@@ -411,15 +417,93 @@ JSONL soubor, každý řádek = jeden výrobce.
 
 ## FILTRAČNÍ PARAMETRY / FILTERING PARAMETERS
 
-### POST /api/products/filtering-parameters — Vytvoření
+### Workflow — vytvoření a přiřazení k produktům
+
+1. **Vytvoř globální parametr** → `POST /api/products/filtering-parameters`
+2. **Přiřaď hodnoty k produktu** → `PATCH /api/products/{guid}` s polem `filteringParameters`
+3. **Smazání parametru** automaticky odstraní vazby ze všech produktů
+
+### POST /api/products/filtering-parameters — Vytvoření globálního parametru
 
 | Pole | Typ | Povinné | Popis |
 |------|-----|---------|-------|
 | `name` | string | **ANO** | Název parametru |
-| `values` | array | **ANO** | [{name: string (required), valueIndex: string\|null, priority: int\|null, color: string\|null, image: string\|null}] |
+| `values` | array | **ANO** | Pole hodnot (viz níže) |
 | `code` | string | ne | URL kód (generuje se z name pokud chybí) |
+| `priority` | integer | ne | Pořadí parametru ve filtru |
 | `displayName` | string\|null | ne | Zobrazovaný název |
 | `googleMapping` | string\|null | ne | Google mapování |
+
+**Hodnota (values[]):**
+
+| Pole | Typ | Povinné | Popis |
+|------|-----|---------|-------|
+| `name` | string | **ANO** | Zobrazovaný název hodnoty |
+| `valueIndex` | string | ne | URL slug — **POUZE `^[a-zA-Z0-9\-]*$`** — žádné háčky/čárky! |
+| `priority` | integer | ne | Pořadí (min. **1**, 0 je chyba!) |
+| `color` | string\|null | ne | Barva (hex) |
+| `image` | string\|null | ne | Název obrázku |
+
+**⚠️ KRITICKÉ:**
+- `valueIndex` musí být čistě ASCII: `reishi`, `cerny-bez`, `200`, `60-ks` ✓ — `reíší`, `černý-bez` ✗ → error 422
+- `priority` minimální hodnota je **1** (ne 0) → error 422
+- Pokud dva parametry mají stejné `valueIndex`, API vrátí 422
+
+```json
+{
+  "data": {
+    "name": "Medicinální houby",
+    "code": "medicinalni-houby",
+    "priority": 1,
+    "values": [
+      {"name": "Reishi (Lesklokorka lesklá)", "valueIndex": "reishi", "priority": 1},
+      {"name": "Chaga (Rezavec šikmý)", "valueIndex": "chaga", "priority": 2}
+    ]
+  }
+}
+```
+
+### POST /api/products/filtering-parameters/{code} — Přidání hodnot
+
+Přidá hodnoty k existujícímu parametru.
+
+```json
+{"data": {"paramValues": [{"name": "Nová hodnota", "valueIndex": "nova-hodnota", "priority": 5}]}}
+```
+
+### DELETE /api/products/filtering-parameters/{code} — Smazání parametru
+
+Smaže parametr **i všechny vazby na produkty**. Není potřeba ručně odlinkovat produkty.
+
+### Přiřazení parametrů k produktu — PATCH /api/products/{guid}
+
+**Formát `filteringParameters` (pole stringů, NE objektů):**
+
+```json
+{
+  "filteringParameters": [
+    {
+      "code": "medicinalni-houby",
+      "values": ["reishi", "chaga", "hericium"]
+    },
+    {
+      "code": "forma-produktu",
+      "values": ["med"]
+    },
+    {
+      "code": "hmotnost",
+      "values": ["200"]
+    }
+  ]
+}
+```
+
+**⚠️ `values` je pole stringů (valueIndex), NE pole objektů!**
+- ✓ `"values": ["reishi", "chaga"]`
+- ✗ `"values": [{"valueIndex": "reishi"}, {"valueIndex": "chaga"}]` → error 422
+- ✗ `"values": [{"nameIndex": "...", "valueIndex": "..."}]` → error 422
+
+Přiřazení **přepíše** všechny existující filtrační parametry produktu.
 
 ---
 
