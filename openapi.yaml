@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Shoptet API
-  version: 92d3d30
+  version: dfb8f96
   description: >-
     Created in cooperation with the Ministry of Industry and Trade of the Czech
 
@@ -17124,6 +17124,7 @@ paths:
                                   - disable_order_status_email_notification
                                   - disable_shipment_status_email_notification
                                   - enable_update_in_detail_pages
+                                  - payment_method_linkable
                               description: List of abilities of the sales channel.
                             currencies:
                               type: array
@@ -29775,6 +29776,7 @@ paths:
                                 - disable_order_status_email_notification
                                 - disable_shipment_status_email_notification
                                 - enable_update_in_detail_pages
+                                - payment_method_linkable
                             description: List of abilities of the sales channel.
                           defaultCurrency:
                             type:
@@ -30052,6 +30054,7 @@ paths:
                                 - disable_order_status_email_notification
                                 - disable_shipment_status_email_notification
                                 - enable_update_in_detail_pages
+                                - payment_method_linkable
                             description: List of abilities of the sales channel.
                           defaultCurrency:
                             type:
