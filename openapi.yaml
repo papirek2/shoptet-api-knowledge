@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Shoptet API
-  version: a58a709
+  version: 8f28327
   description: >-
     Created in cooperation with the Ministry of Industry and Trade of the Czech
 
@@ -1259,6 +1259,25 @@ info:
     projectReview:create | Project review creation event | ID of project review
     | no
 
+    product:create (*) | Product creation event | String (`guid`) of product |
+    no
+
+    product:update (*) | Product change event | String (`guid`) of product | no
+
+    product:delete (*) | Product deleting event | String (`guid`) of product |
+    no
+
+    productVariant:create (*) | Product variant creation event | Variant code |
+    no
+
+    productVariant:update (*) | Product variant change event | Variant code | no
+
+    productVariant:delete (*) | Product variant deleting event | Variant code |
+    no
+
+    productVariantPrice:update (*) | Product variant price change event |
+    Variant code | no
+
     productReview:created | Product review creation event | ID of product review
     | no
 
@@ -1372,6 +1391,11 @@ info:
     changes](https://developers.shoptet.com/category/api/) for more info
 
 
+    Payload delivery (the `payload` field) is not available for mass webhooks,
+    which is why the table below has no **Payload supported** column - it
+    applies to single events only.
+
+
 
     Value  | Description | Identifier meaning
 
@@ -1405,6 +1429,27 @@ info:
     with paid status are created (register `order:create`/`order:massCreate`).
     Emitted only if the unpaid state is changed to paid during mass orders
     update.      | Json serialized list of number (`code`) of orders
+
+    product:massCreate (*) | Mass create of products event | Json serialized
+    list of string (`guid`) of products
+
+    product:massUpdate (*) | Mass change of products event | Json serialized
+    list of string (`guid`) of products
+
+    product:massDelete (*) | Mass delete of products event | Json serialized
+    list of string (`guid`) of products
+
+    productVariant:massCreate (*) | Mass create of product variants event | Json
+    serialized list of variant codes
+
+    productVariant:massUpdate (*) | Mass change of product variants event | Json
+    serialized list of variant codes
+
+    productVariant:massDelete (*) | Mass delete of product variants event | Json
+    serialized list of variant codes
+
+    productVariantPrice:massUpdate (*) | Mass change of product variant prices
+    event | Json serialized list of variant codes
 
     quantityDiscount:massDelete | Mass delete of quantity discount event | Json
     serialized list of quantity discounts IDs
@@ -17372,6 +17417,9 @@ paths:
                       - errorCode: shipment-validation-failed
                         message: Missing delivery point of order.
                         instance: data.orderCode
+                      - errorCode: shipment-validation-failed
+                        message: Missing delivery country of order.
+                        instance: data.orderCode
                       - errorCode: shipment-order-without-shipping
                         message: Order does not include shipping.
                         instance: payload
@@ -17747,6 +17795,9 @@ paths:
                     instance: payload
                   - errorCode: shipment-validation-failed
                     message: 'Invalid country of order, allowed countries: CZ.'
+                    instance: data.orderCode
+                  - errorCode: shipment-validation-failed
+                    message: Missing delivery country of order.
                     instance: data.orderCode
               schema:
                 type: object
