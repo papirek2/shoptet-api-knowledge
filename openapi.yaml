@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Shoptet API
-  version: 8f28327
+  version: 15f6dba
   description: >-
     Created in cooperation with the Ministry of Industry and Trade of the Czech
 
@@ -901,7 +901,18 @@ info:
 
     of the image - you will be redirected to the same image. The `cdnName` is
 
-    intended for use with the `cdnUrl` only.
+    intended for use with the `cdnPath` only.
+
+
+    `cdnName` contains a signed URL for the `big` cut. For other cuts, use the
+
+    `signedCdnNames` map, which is keyed by cut code (e.g. `big`, `detail`,
+
+    `thumbnail`). Each value is a pre-signed filename that can be appended to
+
+    the matching cut's `cdnPath` from `/api/eshop?include=imageCuts`. Old-format
+
+    bare-hash URLs remain valid on the CDN.
 
 
     The fields look like: (excerpt)
@@ -912,7 +923,11 @@ info:
         "name": "106.png",
         "description": "shamrock 2115611 640",
         "seoName": "106_shamrock-2115611-640.png",
-        "cdnName": "106_shamrock-2115611-640.png?5b2a41f5"
+        "cdnName": "106_shamrock-2115611-640.png?ff=1&x=1024&y=768&q=85&ts=5b2a41f5&sg=cce48299",
+        "signedCdnNames": {
+            "big": "106_shamrock-2115611-640.png?ff=1&x=1024&y=768&q=85&ts=5b2a41f5&sg=cce48299",
+            "detail": "106_shamrock-2115611-640.png?ff=1&x=423&y=318&q=85&ts=5b2a41f5&sg=265606b9"
+        }
     ```
 
 
@@ -4963,6 +4978,7 @@ paths:
                                 - name
                                 - seoName
                                 - cdnName
+                                - signedCdnNames
                                 - priority
                                 - description
                                 - changeTime
@@ -4990,10 +5006,33 @@ paths:
                                 cdnName:
                                   type: string
                                   description: >-
-                                    same as `seoName` with attached hashed last
-                                    image change time.
+                                    seoName with signed CDN query parameters for
+                                    the `big` cut. Combine with the cut's
+                                    `cdnPath` from
+                                    `/api/eshop?include=imageCuts` to form the
+                                    full URL. Old-format URLs (bare hash) remain
+                                    valid on the CDN.
                                   examples:
-                                    - 100_purple-apple.jpg?59393c3a
+                                    - >-
+                                      100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                                signedCdnNames:
+                                  type:
+                                    - object
+                                    - 'null'
+                                  additionalProperties:
+                                    type: string
+                                  description: >-
+                                    Per-cut signed CDN filenames, keyed by cut
+                                    code (e.g. `big`, `thumbnail`). Combine each
+                                    value with the matching cut's `cdnPath` from
+                                    `/api/eshop?include=imageCuts` to form a
+                                    correctly-signed URL. `null` when cut
+                                    configuration is temporarily unavailable.
+                                  examples:
+                                    - big: >-
+                                        100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                                      thumbnail: >-
+                                        100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
                                 priority:
                                   type: integer
                                   description: >-
@@ -5868,7 +5907,7 @@ paths:
                             default: false
                           ossVatLevels:
                             type: array
-                            description: OSS Tax setup
+                            description: OSS Tax setup. Available in OSS mode only.
                             items:
                               type: object
                               additionalProperties: false
@@ -6790,6 +6829,33 @@ paths:
                     instance: payload
                 metadata:
                   requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+        '423':
+          description: Locked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: concurrent-categories-update
+                    message: >-
+                      Categories of product "4030" are being updated
+                      concurrently
+
+                      by another request. Please retry this request.
+                    instance: '4030'
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
       summary: Product update
       operationId: updateProduct
       description: >-
@@ -6833,6 +6899,12 @@ paths:
 
 
         **Maximum number of variants per product is 512.**
+
+
+
+        If the product's categories are being updated by another concurrent
+
+        request at the same time, a 423 code is returned. Retry the request.
       tags:
         - Products
       parameters:
@@ -7223,6 +7295,157 @@ paths:
       parameters:
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-async-endpoint: true
+  /api/products/images/batch:
+    delete:
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - jobId
+                    properties:
+                      jobId:
+                        examples:
+                          - ad24xod
+                        description: token of job
+                        type: string
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                required:
+                  - data
+                  - errors
+                additionalProperties: false
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              example:
+                data: null
+                errors:
+                  - errorCode: file-not-found
+                    message: >-
+                      File "https://jsonlines.org/product-images.jsonl" not
+                      found.
+                    instance: batchFileUrlPath
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+              example:
+                data: null
+                errors:
+                  - errorCode: batch-job-already-running
+                    message: Concurrent job already running!
+                    instance: product-images-batch-delete
+                  - errorCode: another-import-is-running
+                    message: Another import is running. Please try again later.
+                    instance: product-images-batch-delete
+      summary: Product image BATCH delete
+      operationId: productImageBatchDelete
+      description: >-
+        This endpoint allows you to delete multiple product images at once.
+        Batch delete is processed
+
+        asynchronously.
+
+
+
+        See how [Asynchronous
+        requests](https://developers.shoptet.com/asynchronous-requests/) work on
+        our developer's portal.
+
+
+
+        File with data must be in JSONL ([jsonlines](https://jsonlines.org/))
+        format. Each line must contain one
+
+        item in JSON format. Maximum size of file is 100MB.
+
+
+
+        Each JSON row must contain `productGuid` and `gallery` (`shop` or
+        `shop360`). Optionally it may contain
+
+        `imageName` (the image file name). When `imageName` is provided, only
+        that image is deleted. When
+
+        `imageName` is omitted, all images of the product in the given gallery
+        are deleted.
+
+
+
+        The request body may contain a `removeReference` flag (default `false`)
+        that applies to the whole batch.
+
+        When `true`, images referenced by product variants are deleted and the
+        variant reference is cleared
+
+        automatically. When `false`, a referenced single image is refused (the
+        row is logged as an error), and
+
+        referenced images are skipped when deleting all images of a gallery.
+
+
+
+        Asynchronous job processes the jsonl file row by row and tries to
+        validate and delete each item. If there is
+
+        any error (e.g. unknown product or image), the row is skipped and the
+        error is logged, but processing of
+
+        other rows continues.
+
+
+
+        In Log, every item is identified by its position in file (starting from
+        1).
+      tags:
+        - Products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - batchFileUrlPath
+              properties:
+                batchFileUrlPath:
+                  type: string
+                  description: >-
+                    Url to batch file with product images data. File must be in
+                    JSONL format.
+                  examples:
+                    - >-
+                      https://cdn.myshoptet.com/batch-product-images-delete.jsonl
+                removeReference:
+                  type: boolean
+                  default: false
+                  description: >-
+                    When true, images referenced by product variants are deleted
+                    and the variant reference is cleared automatically. When
+                    false (default), a referenced single image is refused (the
+                    row is logged as an error), and referenced images are
+                    skipped when deleting all images of a gallery.
+      parameters:
+        - $ref: '#/components/parameters/DefaultContentType'
+      x-shoptet-async-endpoint: true
   /api/products/code/{code}:
     get:
       responses:
@@ -7544,6 +7767,7 @@ paths:
                             - changeTime
                             - seoName
                             - cdnName
+                            - signedCdnNames
                             - isMainImage
                             - gallery
                           properties:
@@ -7591,12 +7815,32 @@ paths:
                             cdnName:
                               type: string
                               description: >-
-                                same as `seoName` with attached hashed last
-                                image change time. `name`, `seoName` and
-                                `cdnName` can be entered in the URL - redirect
-                                will deliver the same image.
+                                seoName with signed CDN query parameters for the
+                                `big` cut. Combine with the cut''s `cdnPath`
+                                from `/api/eshop?include=imageCuts` to form the
+                                full URL. Old-format URLs (bare hash) remain
+                                valid on the CDN.
                               examples:
-                                - 100_purple-apple.jpg?59393c3a
+                                - >-
+                                  100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                            signedCdnNames:
+                              type:
+                                - object
+                                - 'null'
+                              additionalProperties:
+                                type: string
+                              description: >-
+                                Per-cut signed CDN filenames, keyed by cut code
+                                (e.g. `big`, `thumbnail`). Combine each value
+                                with the matching cut''s `cdnPath` from
+                                `/api/eshop?include=imageCuts` to form a
+                                correctly-signed URL. `null` when cut
+                                configuration is temporarily unavailable.
+                              examples:
+                                - big: >-
+                                    100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                                  thumbnail: >-
+                                    100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
                             isMainImage:
                               type: boolean
                             gallery:
@@ -7744,6 +7988,7 @@ paths:
                             - changeTime
                             - seoName
                             - cdnName
+                            - signedCdnNames
                             - isMainImage
                             - gallery
                           properties:
@@ -7791,12 +8036,32 @@ paths:
                             cdnName:
                               type: string
                               description: >-
-                                same as `seoName` with attached hashed last
-                                image change time. `name`, `seoName` and
-                                `cdnName` can be entered in the URL - redirect
-                                will deliver the same image.
+                                seoName with signed CDN query parameters for the
+                                `big` cut. Combine with the cut''s `cdnPath`
+                                from `/api/eshop?include=imageCuts` to form the
+                                full URL. Old-format URLs (bare hash) remain
+                                valid on the CDN.
                               examples:
-                                - 100_purple-apple.jpg?59393c3a
+                                - >-
+                                  100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                            signedCdnNames:
+                              type:
+                                - object
+                                - 'null'
+                              additionalProperties:
+                                type: string
+                              description: >-
+                                Per-cut signed CDN filenames, keyed by cut code
+                                (e.g. `big`, `thumbnail`). Combine each value
+                                with the matching cut''s `cdnPath` from
+                                `/api/eshop?include=imageCuts` to form a
+                                correctly-signed URL. `null` when cut
+                                configuration is temporarily unavailable.
+                              examples:
+                                - big: >-
+                                    100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                                  thumbnail: >-
+                                    100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
                             isMainImage:
                               type: boolean
                             gallery:
@@ -8761,6 +9026,9 @@ paths:
         |                                       |
 
         |images.cdnName                        |yes                    
+        |                                       |
+
+        |images.signedCdnNames                 |yes                    
         |                                       |
 
         |descriptiveParameters                 |yes                    
@@ -45878,7 +46146,12 @@ paths:
       tags:
         - Reviews
       parameters:
-        - $ref: '#/components/parameters/DefaultItemsPerPageParameter'
+        - name: itemsPerPage
+          in: query
+          description: Returned items per page. Default value is 100. Max value is 200.
+          example: 100
+          schema:
+            type: integer
         - $ref: '#/components/parameters/DefaultPageParameter'
         - $ref: '#/components/parameters/DefaultContentType'
     post:
@@ -46832,14 +47105,12 @@ components:
       minLength: 1
     typeFilename:
       type: string
-      minLength: 1
       maxLength: 255
       pattern: ^[0-9a-zA-Z_\-.]+$
     typeFilenameNullable:
       type:
         - string
         - 'null'
-      minLength: 1
       maxLength: 255
       pattern: ^[0-9a-zA-Z_\-.]+$
       examples:
@@ -46856,7 +47127,6 @@ components:
     typeVariantCodeRequest:
       type: string
       pattern: ^[a-zA-Z0-9_\/ \-\.]+$
-      minLength: 1
       maxLength: 64
       description: >-
         Variant's code. Must be unique if set. After processing it will be
@@ -50266,6 +50536,7 @@ components:
               - name
               - seoName
               - cdnName
+              - signedCdnNames
               - priority
               - description
               - changeTime
@@ -50288,11 +50559,30 @@ components:
               cdnName:
                 type: string
                 description: >-
-                  same as `seoName` with attached hashed last image change time.
-                  `name`, `seoName` and `cdnName` can be entered in the URL -
-                  redirect will deliver the same image.
+                  seoName with signed CDN query parameters for the `big` cut.
+                  Combine with the cut's `cdnPath` from
+                  `/api/eshop?include=imageCuts` to form the full URL.
+                  Old-format URLs (bare hash) remain valid on the CDN.
                 examples:
-                  - 100_purple-apple.jpg?59393c3a
+                  - >-
+                    100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+              signedCdnNames:
+                type:
+                  - object
+                  - 'null'
+                additionalProperties:
+                  type: string
+                description: >-
+                  Per-cut signed CDN filenames, keyed by cut code (e.g. `big`,
+                  `thumbnail`). Combine each value with the matching cut's
+                  `cdnPath` from `/api/eshop?include=imageCuts` to form a
+                  correctly-signed URL. `null` when cut configuration is
+                  temporarily unavailable.
+                examples:
+                  - big: >-
+                      100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                    thumbnail: >-
+                      100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
               priority:
                 type:
                   - integer
@@ -51118,7 +51408,7 @@ components:
                   - true
               ossVatLevels:
                 type: array
-                description: OSS Tax setup
+                description: OSS Tax setup. Available in OSS mode only.
                 items:
                   type: object
                   additionalProperties: false
@@ -51977,6 +52267,7 @@ components:
             - name
             - seoName
             - cdnName
+            - signedCdnNames
             - priority
             - description
             - changeTime
@@ -51998,11 +52289,30 @@ components:
             cdnName:
               type: string
               description: >-
-                same as `seoName` with attached hashed last image change time.
-                `name`, `seoName` and `cdnName` can be entered in the URL -
-                redirect will deliver the same image.
+                seoName with signed CDN query parameters for the `big` cut.
+                Combine with the cut's `cdnPath` from
+                `/api/eshop?include=imageCuts` to form the full URL. Old-format
+                URLs (bare hash) remain valid on the CDN.
               examples:
-                - 100_purple-apple.jpg?59393c3a
+                - >-
+                  100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+            signedCdnNames:
+              type:
+                - object
+                - 'null'
+              additionalProperties:
+                type: string
+              description: >-
+                Per-cut signed CDN filenames, keyed by cut code (e.g. `big`,
+                `thumbnail`). Combine each value with the matching cut's
+                `cdnPath` from `/api/eshop?include=imageCuts` to form a
+                correctly-signed URL. `null` when cut configuration is
+                temporarily unavailable.
+              examples:
+                - big: >-
+                    100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                  thumbnail: >-
+                    100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
             priority:
               type: integer
               description: >-
