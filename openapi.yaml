@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Shoptet API
-  version: 15f6dba
+  version: 3c90465
   description: >-
     Created in cooperation with the Ministry of Industry and Trade of the Czech
 
@@ -906,13 +906,14 @@ info:
 
     `cdnName` contains a signed URL for the `big` cut. For other cuts, use the
 
-    `signedCdnNames` map, which is keyed by cut code (e.g. `big`, `detail`,
+    `signedCdnNames` array. Each element has a `type` (the cut code, e.g. `big`,
 
-    `thumbnail`). Each value is a pre-signed filename that can be appended to
+    `detail`, `thumbnail`) and a `name` (the pre-signed filename) that can be
 
-    the matching cut's `cdnPath` from `/api/eshop?include=imageCuts`. Old-format
+    appended to the matching cut's `cdnPath` from
+    `/api/eshop?include=imageCuts`.
 
-    bare-hash URLs remain valid on the CDN.
+    Old-format bare-hash URLs remain valid on the CDN.
 
 
     The fields look like: (excerpt)
@@ -924,10 +925,10 @@ info:
         "description": "shamrock 2115611 640",
         "seoName": "106_shamrock-2115611-640.png",
         "cdnName": "106_shamrock-2115611-640.png?ff=1&x=1024&y=768&q=85&ts=5b2a41f5&sg=cce48299",
-        "signedCdnNames": {
-            "big": "106_shamrock-2115611-640.png?ff=1&x=1024&y=768&q=85&ts=5b2a41f5&sg=cce48299",
-            "detail": "106_shamrock-2115611-640.png?ff=1&x=423&y=318&q=85&ts=5b2a41f5&sg=265606b9"
-        }
+        "signedCdnNames": [
+            {"type": "big", "name": "106_shamrock-2115611-640.png?ff=1&x=1024&y=768&q=85&ts=5b2a41f5&sg=cce48299"},
+            {"type": "detail", "name": "106_shamrock-2115611-640.png?ff=1&x=423&y=318&q=85&ts=5b2a41f5&sg=265606b9"}
+        ]
     ```
 
 
@@ -5017,22 +5018,32 @@ paths:
                                       100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
                                 signedCdnNames:
                                   type:
-                                    - object
+                                    - array
                                     - 'null'
-                                  additionalProperties:
-                                    type: string
+                                  items:
+                                    type: object
+                                    required:
+                                      - type
+                                      - name
+                                    properties:
+                                      type:
+                                        type: string
+                                      name:
+                                        type: string
                                   description: >-
-                                    Per-cut signed CDN filenames, keyed by cut
-                                    code (e.g. `big`, `thumbnail`). Combine each
-                                    value with the matching cut's `cdnPath` from
+                                    Per-cut signed CDN filenames. Combine each
+                                    `name` value with the matching cut's
+                                    `cdnPath` from
                                     `/api/eshop?include=imageCuts` to form a
                                     correctly-signed URL. `null` when cut
                                     configuration is temporarily unavailable.
                                   examples:
-                                    - big: >-
-                                        100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
-                                      thumbnail: >-
-                                        100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
+                                    - - type: big
+                                        name: >-
+                                          100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                                      - type: thumbnail
+                                        name: >-
+                                          100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
                                 priority:
                                   type: integer
                                   description: >-
@@ -7825,22 +7836,31 @@ paths:
                                   100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
                             signedCdnNames:
                               type:
-                                - object
+                                - array
                                 - 'null'
-                              additionalProperties:
-                                type: string
+                              items:
+                                type: object
+                                required:
+                                  - type
+                                  - name
+                                properties:
+                                  type:
+                                    type: string
+                                  name:
+                                    type: string
                               description: >-
-                                Per-cut signed CDN filenames, keyed by cut code
-                                (e.g. `big`, `thumbnail`). Combine each value
-                                with the matching cut''s `cdnPath` from
-                                `/api/eshop?include=imageCuts` to form a
+                                Per-cut signed CDN filenames. Combine each
+                                `name` value with the matching cut''s `cdnPath`
+                                from `/api/eshop?include=imageCuts` to form a
                                 correctly-signed URL. `null` when cut
                                 configuration is temporarily unavailable.
                               examples:
-                                - big: >-
-                                    100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
-                                  thumbnail: >-
-                                    100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
+                                - - type: big
+                                    name: >-
+                                      100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                                  - type: thumbnail
+                                    name: >-
+                                      100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
                             isMainImage:
                               type: boolean
                             gallery:
@@ -8046,22 +8066,31 @@ paths:
                                   100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
                             signedCdnNames:
                               type:
-                                - object
+                                - array
                                 - 'null'
-                              additionalProperties:
-                                type: string
+                              items:
+                                type: object
+                                required:
+                                  - type
+                                  - name
+                                properties:
+                                  type:
+                                    type: string
+                                  name:
+                                    type: string
                               description: >-
-                                Per-cut signed CDN filenames, keyed by cut code
-                                (e.g. `big`, `thumbnail`). Combine each value
-                                with the matching cut''s `cdnPath` from
-                                `/api/eshop?include=imageCuts` to form a
+                                Per-cut signed CDN filenames. Combine each
+                                `name` value with the matching cut''s `cdnPath`
+                                from `/api/eshop?include=imageCuts` to form a
                                 correctly-signed URL. `null` when cut
                                 configuration is temporarily unavailable.
                               examples:
-                                - big: >-
-                                    100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
-                                  thumbnail: >-
-                                    100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
+                                - - type: big
+                                    name: >-
+                                      100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                                  - type: thumbnail
+                                    name: >-
+                                      100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
                             isMainImage:
                               type: boolean
                             gallery:
@@ -20436,6 +20465,29 @@ paths:
                   - errors
                   - metadata
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: record-already-changed
+                    message: Order has been changed before update.
+                    instance: payload
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
       summary: Order head change
       operationId: updateOrderHead
       description: |-
@@ -21252,6 +21304,29 @@ paths:
                   - errorCode: currency-not-found
                     message: Currency code "BHJ" not found.
                     instance: data.currency
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: record-already-changed
+                    message: Order has been changed before update.
+                    instance: payload
                 metadata:
                   requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
         '422':
@@ -22888,6 +22963,29 @@ paths:
                   - errorCode: order-not-found
                     message: Order "2018000012" not found.
                     instance: '2018000012'
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: record-already-changed
+                    message: Order has been changed before update.
+                    instance: payload
                 metadata:
                   requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
       summary: Update of order status
@@ -26690,18 +26788,29 @@ paths:
           description: Conflict
           content:
             application/json:
-              example:
-                data: null
-                errors:
-                  - errorCode: proof-payments-closed
-                    message: >-
-                      Proof payment with code "P--0000000000-1" is closed.
-                      Unlock
+              examples:
+                Document closed:
+                  value:
+                    data: null
+                    errors:
+                      - errorCode: proof-payments-closed
+                        message: >-
+                          Proof payment with code "P--0000000000-1" is closed.
+                          Unlock
 
-                      proof payment first.
-                    instance: P--0000000000-1
-                metadata:
-                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+                          proof payment first.
+                        instance: P--0000000000-1
+                    metadata:
+                      requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+                Record already changed:
+                  value:
+                    data: null
+                    errors:
+                      - errorCode: record-already-changed
+                        message: Proof of payment has been changed before update.
+                        instance: payload
+                    metadata:
+                      requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
               schema:
                 type: object
                 properties:
@@ -28245,6 +28354,29 @@ paths:
                   - errors
                   - metadata
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: record-already-changed
+                    message: Credit note has been changed before update.
+                    instance: payload
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
         '422':
           description: Unprocessable Entity
           content:
@@ -50568,21 +50700,30 @@ components:
                     100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
               signedCdnNames:
                 type:
-                  - object
+                  - array
                   - 'null'
-                additionalProperties:
-                  type: string
+                items:
+                  type: object
+                  required:
+                    - type
+                    - name
+                  properties:
+                    type:
+                      type: string
+                    name:
+                      type: string
                 description: >-
-                  Per-cut signed CDN filenames, keyed by cut code (e.g. `big`,
-                  `thumbnail`). Combine each value with the matching cut's
-                  `cdnPath` from `/api/eshop?include=imageCuts` to form a
-                  correctly-signed URL. `null` when cut configuration is
-                  temporarily unavailable.
+                  Per-cut signed CDN filenames. Combine each `name` value with
+                  the matching cut's `cdnPath` from
+                  `/api/eshop?include=imageCuts` to form a correctly-signed URL.
+                  `null` when cut configuration is temporarily unavailable.
                 examples:
-                  - big: >-
-                      100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
-                    thumbnail: >-
-                      100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
+                  - - type: big
+                      name: >-
+                        100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                    - type: thumbnail
+                      name: >-
+                        100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
               priority:
                 type:
                   - integer
@@ -52298,21 +52439,30 @@ components:
                   100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
             signedCdnNames:
               type:
-                - object
+                - array
                 - 'null'
-              additionalProperties:
-                type: string
+              items:
+                type: object
+                required:
+                  - type
+                  - name
+                properties:
+                  type:
+                    type: string
+                  name:
+                    type: string
               description: >-
-                Per-cut signed CDN filenames, keyed by cut code (e.g. `big`,
-                `thumbnail`). Combine each value with the matching cut's
-                `cdnPath` from `/api/eshop?include=imageCuts` to form a
-                correctly-signed URL. `null` when cut configuration is
+                Per-cut signed CDN filenames. Combine each `name` value with the
+                matching cut's `cdnPath` from `/api/eshop?include=imageCuts` to
+                form a correctly-signed URL. `null` when cut configuration is
                 temporarily unavailable.
               examples:
-                - big: >-
-                    100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
-                  thumbnail: >-
-                    100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
+                - - type: big
+                    name: >-
+                      100_purple-apple.jpg?ff=1&x=1024&y=768&q=85&ts=59393c3a&sg=df3f0411
+                  - type: thumbnail
+                    name: >-
+                      100_purple-apple.jpg?ff=1&x=300&y=300&q=85&ts=59393c3a&sg=ab12cd34
             priority:
               type: integer
               description: >-
