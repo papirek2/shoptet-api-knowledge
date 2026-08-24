@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Shoptet API
-  version: d82084e
+  version: 1ebc791
   description: >-
     Created in cooperation with the Ministry of Industry and Trade of the Czech
 
@@ -2231,6 +2231,8 @@ tags:
     description: Managing customer groups in the e-shop.
   - name: Customer remarks
     description: Managing customer remarks.
+  - name: Abandoned carts
+    description: Managing abandoned carts in the e-shop.
   - name: Articles
     description: Managing articles in the e-shop.
   - name: Pages
@@ -5383,6 +5385,11 @@ paths:
                   - errorCode: invalid-request-data
                     message: Maximum number of variants per product is 512.
                     instance: payload
+                  - errorCode: invalid-request-data
+                    message: >-
+                      The property heureka is not allowed. An active Heureka
+                      module is required.
+                    instance: payload
                 metadata:
                   requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
       summary: Product insertion
@@ -5916,6 +5923,27 @@ paths:
                             examples:
                               - true
                             default: false
+                          heureka:
+                            type: object
+                            additionalProperties: false
+                            description: >-
+                              Heureka visibility settings. Applied only when the
+                              Heureka module is active.
+                            properties:
+                              feedExcluded:
+                                type: boolean
+                                description: >-
+                                  Flag, whether the variant is hidden from the
+                                  Heureka comparison feed.
+                                examples:
+                                  - true
+                              cartExcluded:
+                                type: boolean
+                                description: >-
+                                  Flag, whether the variant is hidden from
+                                  Heureka Marketplace.
+                                examples:
+                                  - true
                           ossVatLevels:
                             type: array
                             description: OSS Tax setup. Available in OSS mode only.
@@ -6838,6 +6866,11 @@ paths:
                   - errorCode: invalid-request-data
                     message: Maximum number of variants per product is 512.
                     instance: payload
+                  - errorCode: invalid-request-data
+                    message: >-
+                      The property heureka is not allowed. An active Heureka
+                      module is required.
+                    instance: payload
                 metadata:
                   requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
         '423':
@@ -7141,7 +7174,8 @@ paths:
 
 
         See [Product batch delete
-        schema](/shoptet-api/openapi/batch/productbatchdelete) for more details.
+        schema](/shoptet-api/openapi/batch/productbatchdeleteschema) for more
+        details.
       tags:
         - Products
       requestBody:
@@ -7597,6 +7631,11 @@ paths:
                     message: >-
                       The property consumptionTaxId is not allowed. Module
                       "consumptionTax" required.
+                    instance: payload
+                  - errorCode: invalid-request-data
+                    message: >-
+                      The property heureka is not allowed. An active Heureka
+                      module is required.
                     instance: payload
                 metadata:
                   requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
@@ -17585,6 +17624,16 @@ paths:
                                 code list
                               examples:
                                 - requested
+                            shipmentType:
+                              type: string
+                              enum:
+                                - standard
+                                - return
+                              description: >-
+                                Shipment type. `return` is a return label
+                                (customer sends goods back to the shop).
+                              examples:
+                                - standard
                             serviceCode:
                               type: string
                               description: Service code
@@ -17900,6 +17949,7 @@ paths:
                       - guid
                       - carrierAddress
                       - status
+                      - shipmentType
                       - serviceCode
                       - customer
                       - packages
@@ -17932,6 +17982,16 @@ paths:
                           list
                         examples:
                           - requested
+                      shipmentType:
+                        type: string
+                        enum:
+                          - standard
+                          - return
+                        description: >-
+                          Shipment type. `return` is a return label (customer
+                          sends goods back to the shop).
+                        examples:
+                          - standard
                       serviceCode:
                         type: string
                         description: Service code
@@ -20002,7 +20062,21 @@ paths:
     patch:
       responses:
         '200':
-          description: OK
+          description: >-
+            OK — at least one order got its new status. Orders that were skipped
+            or left unchanged are
+
+            reported in `errors`, one entry per order code:
+            `invalid-request-data` when the code does not
+
+            exist, `database-conflict` or `record-already-changed` when the
+            order was modified concurrently
+
+            (both worth retrying), and `unknown-error` when the order could not
+            be saved for another reason
+
+            (retrying will not help). An empty `errors` array means every
+            requested order was updated.
           content:
             application/json:
               schema:
@@ -20045,6 +20119,47 @@ paths:
                       Orders with codes 2017000040, 2017000041, 2017000042,
                       2017000043, 2017000044, 2017000045 do not exist. Skipped.
                     instance: data.orderCodes
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+        '409':
+          description: >-
+            Conflict — none of the requested orders got its new status because
+            every one of them was
+
+            modified concurrently. When only some of them conflict the response
+            is `200` instead, with one
+
+            error entry per affected order code, because each order is committed
+            on its own and the rest
+
+            were applied. Both cases are safe to retry for the reported order
+            codes only.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: database-conflict
+                    message: >-
+                      Status of order "2017000040" was not changed because of a
+                      transient database conflict. Please retry.
+                    instance: '2017000040'
+                  - errorCode: record-already-changed
+                    message: >-
+                      Status of order "2017000041" was not changed because the
+                      order was modified concurrently. Please retry.
+                    instance: '2017000041'
                 metadata:
                   requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
         '422':
@@ -22986,6 +23101,11 @@ paths:
                   - errorCode: record-already-changed
                     message: Order has been changed before update.
                     instance: payload
+                  - errorCode: database-conflict
+                    message: >-
+                      A transient database conflict occurred. Please retry the
+                      request.
+                    instance: database
                 metadata:
                   requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
       summary: Update of order status
@@ -23903,10 +24023,8 @@ paths:
         **The `settings` parameter:**
 
 
-        Default suppress params for each row can be defined in URL params same
-        as in [Order insertion](#tag/orders/createorder) endpoint. In the
-        `settings` parameter, you can modify suppress parameters for specific
-        row/record.
+        In the `settings` parameter, you can set the suppress parameters for a
+        specific row/record.
 
 
         **All params in `settings` can be in 3 states:**
@@ -23918,9 +24036,7 @@ paths:
         - `false` - _false_ value is applied.
 
 
-        - _parameter is missing_ - The value from corresponding request
-        parameter is used, if corresponding request parameter is not defined the
-        value is set to `false`.
+        - _parameter is missing_ - the default value _false_ is applied.
 
 
         **The `data` parameter:**
@@ -32051,6 +32167,68 @@ paths:
       parameters:
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-async-endpoint: true
+  /api/abandoned-carts/snapshot:
+    get:
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - jobId
+                    properties:
+                      jobId:
+                        examples:
+                          - ad24xod
+                        description: token of job
+                        type: string
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+      summary: List of all abandoned carts
+      operationId: getListOfAllAbandonedCarts
+      description: >-
+        Using this endpoint, you can get list of all abandoned carts
+        asynchronously. See how [Asynchronous
+        requests](https://developers.shoptet.com/asynchronous-requests/) work on
+        our developer's portal.
+
+
+        Response will be in [jsonlines](https://jsonlines.org/) format with each
+        abandoned cart taking one line of output file.
+
+
+        Use `visitTimeFrom`/`visitTimeTo` to request a full snapshot on the
+        first call, then request only carts last visited since the previous run
+        (e.g. `visitTimeFrom` set to yesterday) for daily incremental updates.
+
+
+        Result file is compressed using GZIP.
+      tags:
+        - Abandoned carts
+      parameters:
+        - name: visitTimeFrom
+          in: query
+          description: Export abandoned carts last visited after date
+          example: 2026-07-21T00:00:00+0200
+          schema:
+            type: string
+        - name: visitTimeTo
+          in: query
+          description: Export abandoned carts last visited before date
+          example: 2026-07-22T00:00:00+0200
+          schema:
+            type: string
+        - $ref: '#/components/parameters/DefaultContentType'
+      x-shoptet-snapshot-endpoint: true
+      x-shoptet-response-ref: '#/definitions/abandonedCartSnapshot'
   /api/customers:
     get:
       responses:
@@ -46587,6 +46765,30 @@ paths:
       tags:
         - Reviews
       parameters:
+        - name: dateFrom
+          in: query
+          description: Filter reviews with creation date after date.
+          example: 2019-09-05T00:00:00%2B0100
+          schema:
+            type: string
+        - name: dateTo
+          in: query
+          description: Filter reviews with creation date before date.
+          example: 2019-09-05T00:00:00%2B0100
+          schema:
+            type: string
+        - name: visible
+          in: query
+          description: Filter reviews by visibility.
+          example: true
+          schema:
+            type: boolean
+        - name: orderCode
+          in: query
+          description: Order identifier to filter reviews by.
+          example: '2011000002'
+          schema:
+            type: string
         - name: itemsPerPage
           in: query
           description: Returned items per page. Default value is 100. Max value is 200.
@@ -50802,6 +51004,28 @@ components:
                       - 'null'
                     examples:
                       - true
+              heureka:
+                type: object
+                additionalProperties: false
+                description: Heureka visibility settings
+                required:
+                  - feedExcluded
+                  - cartExcluded
+                properties:
+                  feedExcluded:
+                    type: boolean
+                    description: >-
+                      Flag, whether the variant is hidden from the Heureka
+                      comparison feed.
+                    examples:
+                      - true
+                  cartExcluded:
+                    type: boolean
+                    description: >-
+                      Flag, whether the variant is hidden from Heureka
+                      Marketplace.
+                    examples:
+                      - true
               atypicalBilling:
                 type: boolean
                 description: Has atypical billing?
@@ -51856,6 +52080,27 @@ components:
                 description: When enabled, pickup lockers cannot be selected in the cart.
                 examples:
                   - true
+              heureka:
+                type: object
+                additionalProperties: false
+                description: >-
+                  Heureka visibility settings. Applied only when the Heureka
+                  module is active.
+                properties:
+                  feedExcluded:
+                    type: boolean
+                    description: >-
+                      Flag, whether the variant is hidden from the Heureka
+                      comparison feed.
+                    examples:
+                      - true
+                  cartExcluded:
+                    type: boolean
+                    description: >-
+                      Flag, whether the variant is hidden from Heureka
+                      Marketplace.
+                    examples:
+                      - true
               ossVatLevels:
                 type: array
                 description: OSS Tax setup. Available in OSS mode only.
@@ -57671,6 +57916,139 @@ components:
           description: definition of discounts.
         prices:
           $ref: '#/components/schemas/productPrices'
+    abandonedCartSnapshot:
+      title: Abandoned cart
+      x-tags:
+        - Snapshot
+      type: object
+      additionalProperties: false
+      required:
+        - date
+        - age
+        - items
+        - cartValue
+        - coupon
+        - customer
+        - returns
+        - lastStep
+      properties:
+        date:
+          $ref: '#/components/schemas/typeDateTime'
+          description: date and time the cart was last visited
+        age:
+          type: integer
+          description: number of days since the cart was last visited
+          examples:
+            - 3
+        items:
+          type: array
+          description: products in the abandoned cart
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - code
+              - name
+              - amount
+            properties:
+              code:
+                type: string
+                description: product code
+                examples:
+                  - '0006'
+              name:
+                type: string
+                description: product name
+                examples:
+                  - Product name
+              amount:
+                type: number
+                description: amount of the product in the cart
+                examples:
+                  - 2
+        cartValue:
+          $ref: '#/components/schemas/typePrice'
+          description: total price of the cart (default eshop VAT rate is used)
+        coupon:
+          type:
+            - object
+            - 'null'
+          additionalProperties: false
+          required:
+            - code
+            - discountType
+            - amount
+            - ratio
+          description: discount coupon applied to the cart (`null` if none was used)
+          properties:
+            code:
+              type: string
+              description: code of discount coupon
+              examples:
+                - DC14585431
+            discountType:
+              type: string
+              enum:
+                - percentual
+                - fixed
+              description: >-
+                type of discount. Percentual (`percentual`) or absolute discount
+                (`fixed`)
+              examples:
+                - percentual
+            amount:
+              $ref: '#/components/schemas/typePriceNullable'
+              description: amount of absolute discount (default eshop VAT rate is used)
+            ratio:
+              oneOf:
+                - $ref: '#/components/schemas/typePriceRatio'
+                - type: 'null'
+              description: amount of percentual discount
+        customer:
+          type: object
+          additionalProperties: false
+          required:
+            - name
+            - email
+            - phone
+          properties:
+            name:
+              type: string
+              description: customer's full name
+              examples:
+                - John Doe
+            email:
+              type:
+                - string
+                - 'null'
+              description: customer's e-mail
+              examples:
+                - john.doe@example.com
+            phone:
+              type:
+                - string
+                - 'null'
+              description: customer's phone number
+              examples:
+                - '+420123456789'
+        returns:
+          type: integer
+          description: number of times the customer returned to (revisited) the cart
+          examples:
+            - 2
+        lastStep:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+            - 3
+          description: >-
+            last step reached in the cart before it was abandoned. `0` cart
+            (checkout not started), `1` delivery and payment method selection,
+            `2` customer/contact details, `3` order was created
+          examples:
+            - 0
     articleSnapshot:
       title: Article
       x-tags:
@@ -57979,6 +58357,7 @@ x-tagGroups:
       - Templates
   - name: Marketing
     tags:
+      - Abandoned carts
       - Discount coupons
       - E-mail distribution lists
       - Quantity discounts
