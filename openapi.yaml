@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Shoptet API
-  version: 6df8e36
+  version: 4bcd754
   description: >-
     Created in cooperation with the Ministry of Industry and Trade of the Czech
 
@@ -1283,16 +1283,17 @@ info:
     product:delete (*) | Product deleting event | String (`guid`) of product |
     no
 
-    productVariant:create (*) | Product variant creation event | Variant code |
-    no
+    productVariant:create (*) | Product variant creation event | Product `guid`
+    and variant `code` separated by a pipe character | no
 
-    productVariant:update (*) | Product variant change event | Variant code | no
+    productVariant:update (*) | Product variant change event | Product `guid`
+    and variant `code` separated by a pipe character | no
 
-    productVariant:delete (*) | Product variant deleting event | Variant code |
-    no
+    productVariant:delete (*) | Product variant deleting event | Product `guid`
+    and variant `code` separated by a pipe character | no
 
     productVariantPrice:update (*) | Product variant price change event |
-    Variant code | no
+    Product `guid` and variant `code` separated by a pipe character | no
 
     productReview:create | Product review creation event | ID of product review
     | no
@@ -1456,16 +1457,20 @@ info:
     list of string (`guid`) of products
 
     productVariant:massCreate (*) | Mass create of product variants event | Json
-    serialized list of variant codes
+    serialized list of product `guid` and variant `code` separated by a pipe
+    character
 
     productVariant:massUpdate (*) | Mass change of product variants event | Json
-    serialized list of variant codes
+    serialized list of product `guid` and variant `code` separated by a pipe
+    character
 
     productVariant:massDelete (*) | Mass delete of product variants event | Json
-    serialized list of variant codes
+    serialized list of product `guid` and variant `code` separated by a pipe
+    character
 
     productVariantPrice:massUpdate (*) | Mass change of product variant prices
-    event | Json serialized list of variant codes
+    event | Json serialized list of product `guid` and variant `code` separated
+    by a pipe character
 
     quantityDiscount:massDelete | Mass delete of quantity discount event | Json
     serialized list of quantity discounts IDs
@@ -17477,6 +17482,24 @@ paths:
 
 
 
+        - on projects with the zero-price feature flag enabled, a literal `0`
+
+        stores a genuine price of zero instead of clearing it — for
+
+        `data.price.price` / `data.price.commonPrice` this is an orderable,
+
+        free item; `data.price.buyPrice` (and `data.prices.purchasePrice.price`)
+
+        is the purchase cost and does not affect orderability. Use `null` to
+
+        remove a price. Projects without the flag enabled (the default) keep
+
+        the legacy behavior, where a literal `0` removes the price the same
+
+        way `null` does
+
+
+
         In case the request will be properly formatted, but an error occurs for
 
         one of the records, the correct records
@@ -18141,7 +18164,9 @@ paths:
       parameters:
         - name: type
           in: query
-          description: 'supported values: `in_store`, `online_store`, `marketplace`'
+          description: >-
+            supported values: `in_store`, `online_store`, `marketplace`,
+            `system`
           example: in_store
           schema:
             type: string
@@ -25275,10 +25300,28 @@ paths:
           example: 2028-02-28T17:04:47+0100
           schema:
             type: string
+        - name: changeTimeFrom
+          in: query
+          description: filtering invoices updated after date
+          example: 2014-09-05T00:00:00%2B0000
+          schema:
+            type: string
+        - name: changeTimeTo
+          in: query
+          description: filtering invoices updated before date
+          example: 2019-09-05T00:00:00%2B0000
+          schema:
+            type: string
         - name: taxDateFrom
           in: query
-          description: filtering according to tax date of invoice
+          description: filtering invoices with tax date after date
           example: '2017-02-28'
+          schema:
+            type: string
+        - name: taxDateTo
+          in: query
+          description: filtering invoices with tax date before date
+          example: '2019-09-05'
           schema:
             type: string
         - name: orderCode
@@ -25297,6 +25340,12 @@ paths:
           in: query
           description: filtering according to code of invoice
           example: '2018000012'
+          schema:
+            type: string
+        - name: customerGuid
+          in: query
+          description: filtering invoices with given customer
+          example: 443cad54-73bc-11e8-8216-002590dad85e
           schema:
             type: string
         - name: varSymbol
@@ -26831,10 +26880,34 @@ paths:
           example: 2017-02-28T17:04:47+0100
           schema:
             type: string
+        - name: changeTimeFrom
+          in: query
+          description: filtering proforma invoices updated after date
+          example: 2014-09-05T00:00:00%2B0000
+          schema:
+            type: string
+        - name: changeTimeTo
+          in: query
+          description: filtering proforma invoices updated before date
+          example: 2019-09-05T00:00:00%2B0000
+          schema:
+            type: string
         - name: varSymbol
           in: query
           description: filtering according to variable symbol of proforma invoice
           example: '666'
+          schema:
+            type: string
+        - name: paid
+          in: query
+          description: Filtering according to if proforma invoice is paid
+          example: true
+          schema:
+            type: boolean
+        - name: currencyCode
+          in: query
+          description: Filtering proforma invoices with given currency code
+          example: CZK
           schema:
             type: string
         - name: itemsPerPage
@@ -30656,14 +30729,44 @@ paths:
       parameters:
         - name: isValid
           in: query
-          description: sorting according to document validity
+          description: filtering according to document validity
           example: true
           schema:
             type: boolean
         - name: orderCode
           in: query
-          description: sorting according to number of order
+          description: filtering according to number of order
           example: '2018000012'
+          schema:
+            type: string
+        - name: creationTimeFrom
+          in: query
+          description: filtering delivery notes created after date
+          example: 2014-09-05T00:00:00%2B0000
+          schema:
+            type: string
+        - name: creationTimeTo
+          in: query
+          description: filtering delivery notes created before date
+          example: 2019-09-05T00:00:00%2B0000
+          schema:
+            type: string
+        - name: changeTimeFrom
+          in: query
+          description: filtering delivery notes updated after date
+          example: 2014-09-05T00:00:00%2B0000
+          schema:
+            type: string
+        - name: changeTimeTo
+          in: query
+          description: filtering delivery notes updated before date
+          example: 2019-09-05T00:00:00%2B0000
+          schema:
+            type: string
+        - name: customerGuid
+          in: query
+          description: filtering delivery notes with given customer
+          example: 443cad54-73bc-11e8-8216-002590dad85e
           schema:
             type: string
         - name: itemsPerPage
@@ -33338,6 +33441,30 @@ paths:
           in: query
           description: ''
           example: '+420123456789'
+          schema:
+            type: string
+        - name: creationTimeFrom
+          in: query
+          description: filtering customers created after date
+          example: 2014-09-05T00:00:00+0100
+          schema:
+            type: string
+        - name: creationTimeTo
+          in: query
+          description: filtering customers created before date
+          example: 2019-09-05T00:00:00+0100
+          schema:
+            type: string
+        - name: changeTimeFrom
+          in: query
+          description: filtering customers changed after date
+          example: 2017-01-01T00:00:00+0100
+          schema:
+            type: string
+        - name: changeTimeTo
+          in: query
+          description: filtering customers changed before date
+          example: 2018-12-31T00:00:00+0100
           schema:
             type: string
         - name: itemsPerPage
@@ -40729,6 +40856,30 @@ paths:
           in: query
           description: date of discount coupon validity - upper limit
           example: '2028-05-28'
+          schema:
+            type: string
+        - name: discountType
+          in: query
+          description: >-
+            filtering discount coupons with given discount type (percentual,
+            fixed)
+          example: percentual
+          schema:
+            type: string
+        - name: currency
+          in: query
+          description: filtering currency of fixed discount
+          example: EUR
+          schema:
+            type: string
+        - name: shippingPrice
+          in: query
+          description: |-
+            filtering by shippingPrice
+            how the transport prices are calculated: according to the cart
+            before discounts (beforeDiscount), according to the displayed value
+            of the cart (cart), or free (free)
+          example: cart
           schema:
             type: string
         - name: itemsPerPage
@@ -54331,6 +54482,14 @@ components:
                         fit existing stock Id. Check List of Stocks.
                       examples:
                         - 1
+                    amount:
+                      $ref: '#/components/schemas/typeAmountNullable'
+                      description: >-
+                        Initial quantity in stock. Allowed only for a newly
+                        created variant, 0 if not set. For an existing variant
+                        use Stock movements instead.
+                      examples:
+                        - '50.000'
                     location:
                       type:
                         - string
