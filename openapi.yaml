@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Shoptet API
-  version: 4bcd754
+  version: 7a25625
   description: >-
     Created in cooperation with the Ministry of Industry and Trade of the Czech
 
@@ -1127,37 +1127,37 @@ info:
     availability:delete | Availability deleting event | Availability ID | no
 
     brand:create | Brand creation event | String (`code`) - brand unique code |
-    no
+    yes
 
     brand:update | Brand change event     | String (`code`) - brand unique code
-    | no
+    | yes
 
     brand:delete | Brand deleting event   | String (`code`) - brand unique code
     | no
 
     category:create | Category creation event | String (`guid`) of product
-    category | no
+    category | yes
 
     category:update | Category change event     | String (`guid`) of product
-    category | no
+    category | yes
 
     category:delete | Category deleting event   | String (`guid`) of product
     category | no
 
     creditNote:create | Credit note creation event | Number (`code`) of credit
-    note | no
+    note | yes
 
     creditNote:delete | Credit note deleting event   | Number (`code`) of credit
     note | no
 
     creditNote:update | Credit note change event     | Number (`code`) of credit
-    note | no
+    note | yes
 
-    customer:create | New customer was created | Customer GUID | no
+    customer:create | New customer was created | Customer GUID | yes
 
     customer:update | Customer was updated. Throws `409 Conflict` when try to
     register simultaneously with `customer:disableOrders` or
-    `customer:enableOrders` | Customer GUID | no
+    `customer:enableOrders` | Customer GUID | yes
 
     customer:disableOrders | An event disabled the customer, and his future
     orders will be automatically cancelled. Throws `409 Conflict` when try to
@@ -1182,25 +1182,22 @@ info:
     | no
 
     deliveryNote:create | Delivery note creation event  | Number (`code`) of
-    delivery note | no
+    delivery note | yes
 
     deliveryNote:delete | Delivery note deleting event    | Number (`code`) of
     delivery note | no
 
-    deliveryNote:create | Delivery note creation event  | Number (`code`) of
-    delivery note | no
-
     deliveryNote:update | Delivery note change event      | Number (`code`) of
-    delivery note | no
+    delivery note | yes
 
     discountCoupon:create | Discount coupon creating event | String (`code`) -
-    discount coupon unique code | no
+    discount coupon unique code | yes
 
     discountCoupon:delete | Discount coupon deleting event      | String
     (`code`) of discount coupon | no
 
     discountCoupon:update | Discount coupon updating event | String (`code`) -
-    discount coupon unique code | no
+    discount coupon unique code | yes
 
     eshop:currencies | Currencies settings change event | ID of eshop | no
 
@@ -1219,11 +1216,12 @@ info:
 
     eshop:projectDomain | Domain of eshop was changed | ID of eshop | no
 
-    invoice:create | Invoice creation event  | Number (`code`) of invoice | no
+    invoice:create | Invoice creation event  | Number (`code`) of invoice | yes
 
     invoice:delete | Invoice deleting event    | Number (`code`) of invoice | no
 
-    invoice:update | Invoice change event      | Number (`code`) of invoice | no
+    invoice:update | Invoice change event      | Number (`code`) of invoice |
+    yes
 
     job:finished | The asynchronous request was finished | Job `id` | no
 
@@ -1237,7 +1235,7 @@ info:
     set to `canceled`. Throws `409 Conflict` when try to register simultaneously
     with `order:update` | Number (`code`) of order | no
 
-    order:create | Order creation event | Number (`code`) of order | no
+    order:create | Order creation event | Number (`code`) of order | yes
 
     order:delete | Order deleting event   | Number (`code`) of order | no
 
@@ -1247,7 +1245,7 @@ info:
     order | no
 
     order:update | Order change event. Throws `409 Conflict` when try to
-    register simultaneously with `order:cancel` | Number (`code`) of order | no
+    register simultaneously with `order:cancel` | Number (`code`) of order | yes
 
     orderHistoryRemarks:change | Order history remarks have been changed.
     Emitted when order remark is created or deleted | Number (`code`) of order |
@@ -1264,21 +1262,21 @@ info:
     no
 
     proformaInvoice:create | Proforma invoice creation event | Number (`code`)
-    of proforma invoice | no
+    of proforma invoice | yes
 
     proformaInvoice:delete | Proforma invoice deleting event   | Number (`code`)
     of proforma invoice | no
 
     proformaInvoice:update | Proforma invoice change event     | Number (`code`)
-    of proforma invoice | no
+    of proforma invoice | yes
 
     projectReview:create | Project review creation event | ID of project review
     | no
 
     product:create (*) | Product creation event | String (`guid`) of product |
-    no
+    yes
 
-    product:update (*) | Product change event | String (`guid`) of product | no
+    product:update (*) | Product change event | String (`guid`) of product | yes
 
     product:delete (*) | Product deleting event | String (`guid`) of product |
     no
@@ -1299,19 +1297,19 @@ info:
     | no
 
     proofPayment:create | Proof of payment creation event | Number (`code`) of
-    proof payment | no
+    proof payment | yes
 
     proofPayment:delete | Proof of payment deleting event | Number (`code`) of
     proof payment | no
 
     proofPayment:update | Proof of payment change event   | Number (`code`) of
-    proof payment | no
+    proof payment | yes
 
     quantityDiscount:create | Quantity discount creation event | ID of quantity
-    discount | no
+    discount | yes
 
     quantityDiscount:update | Quantity discount change event | ID of quantity
-    discount | no
+    discount | yes
 
     quantityDiscount:delete | Quantity discount deleting event | ID of quantity
     discount | no
@@ -1336,10 +1334,10 @@ info:
     | no
 
     sectionArticle:create | Article section create event | ID of article section
-    | no
+    | yes
 
     sectionArticle:update | Article section update event | ID of article section
-    | no
+    | yes
 
     sectionArticle:delete | Article section delete event | ID of article section
     | no
@@ -2202,7 +2200,12 @@ tags:
   - name: Price lists
     description: |-
       Price lists are used for setting up different prices for products for
-      different customer groups.
+      different customer groups. This section covers the price list itself —
+      listing, creating and deleting one.
+  - name: Price list prices
+    description: |-
+      The prices inside a price list: reading them, updating them one request
+      at a time or in batch, and exporting them as a snapshot.
   - name: Brands
     description: |-
       Managing brands in the e-shop.
@@ -2392,6 +2395,14 @@ tags:
           }
       }
       ```
+
+      The payload is fetched with all optional `include` parameters applied for
+      `order`, `product`, `invoice`, `creditNote`, `deliveryNote` and
+      `proformaInvoice` events, so it is richer than a default GET response for
+      those entities. The remaining payload-supported entities (`brand`,
+      `category`, `customer`, `discountCoupon`, `proofPayment`,
+      `quantityDiscount`, `sectionArticle`) are fetched without any `include`
+      parameters.
 
       If the payload cannot be fetched at delivery time (e.g. due to a
       transient error), the notification is still sent without the `payload`
@@ -2746,9 +2757,9 @@ paths:
                           eshopLanguage:
                             type: string
                             description: >-
-                              Default language code of the e-shop. Unavailable
-                              when module foreignLanguages is active and
-                              initialized.
+                              Default language code of the e-shop. Use the
+                              `languages` section instead when module
+                              foreignLanguages is active and initialized.
                             examples:
                               - cs
                           timezone:
@@ -3475,8 +3486,10 @@ paths:
                       languages:
                         type: array
                         description: >-
-                          Supported languages in eshop. Available only if module
-                          Foreign languages is active and initialized.
+                          Supported languages in eshop. Filled only if module
+                          Foreign languages is active AND initialized; otherwise
+                          an empty array is returned and you have to follow the
+                          `eshopLanguage` attribute.
                         items:
                           type: object
                           additionalProperties: false
@@ -3617,9 +3630,11 @@ paths:
 
 
 
-        **Please note that languages section has meaning only if module foreign
-        languages (Cizí jazyky) is enabled on current eshop. Otherwise you have
-        to follow "eshopLanguage" attribute.**
+        **Please note that the `languages` section has meaning only if the
+        module foreign languages (Cizí jazyky) is both enabled AND initialized
+        on the current eshop. If the module is enabled but not initialized yet,
+        `languages` is returned as an empty array. In that case you have to
+        follow the "eshopLanguage" attribute.**
 
 
         Value | Section
@@ -7667,7 +7682,7 @@ paths:
         In Log, every item is identified by its position in file (starting from
         1).
       tags:
-        - Products
+        - Product images
       requestBody:
         content:
           application/json:
@@ -7695,6 +7710,132 @@ paths:
                     row is logged as an error), and referenced images are
                     skipped when deleting all images of a gallery.
       parameters:
+        - $ref: '#/components/parameters/DefaultContentType'
+      x-shoptet-async-endpoint: true
+    post:
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - jobId
+                    properties:
+                      jobId:
+                        examples:
+                          - ad24xod
+                        description: token of job
+                        type: string
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                required:
+                  - data
+                  - errors
+                additionalProperties: false
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              example:
+                data: null
+                errors:
+                  - errorCode: file-not-found
+                    message: >-
+                      File "https://jsonlines.org/product-images.jsonl" not
+                      found.
+                    instance: batchFileUrlPath
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+              example:
+                data: null
+                errors:
+                  - errorCode: batch-job-already-running
+                    message: Concurrent job already running!
+                    instance: product-images-batch-insert
+                  - errorCode: another-import-is-running
+                    message: Another import is running. Please try again later.
+                    instance: product-images-batch-insert
+      summary: Product image BATCH insert
+      operationId: productImageBatchInsert
+      description: >-
+        This endpoint allows you to insert multiple product images to multiple
+        product/galleries at once. Batch is processed
+
+        asynchronously.
+
+
+        See how [Asynchronous
+        requests](https://developers.shoptet.com/asynchronous-requests/) work on
+        our developer's portal.
+
+
+        File with data must be in JSONL ([jsonlines](https://jsonlines.org/))
+        format. Each line must contain one
+
+        item in JSON format. Maximum size of file is 100MB.
+
+
+        Asynchronous job processes the jsonl file row by row and tries to
+        validate and insert each item. If there is
+
+        any error (e.g. unknown product or gallery), the row is skipped and the
+        error is logged, but processing of
+
+        other rows continues.
+
+
+        In Log, every item is identified by its position in file (starting from
+        1).
+
+
+        See [Product image batch
+        insert](/shoptet-api/openapi/batch/productimagebatchinsertschema) for
+        more details.
+      tags:
+        - Product images
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - batchFileUrlPath
+              properties:
+                batchFileUrlPath:
+                  type: string
+                  description: >-
+                    Url to batch file with products data. File must be in JSONL
+                    format.
+                  examples:
+                    - https://cdn.myshoptet.com/batch-products-update.jsonl
+      parameters:
+        - name: clearImages
+          in: query
+          description: >-
+            Remove all original images in products gallery before processing new
+            ones
+          example: true
+          schema:
+            type: boolean
+            default: false
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-async-endpoint: true
   /api/products/code/{code}:
@@ -18069,6 +18210,971 @@ paths:
                   examples:
                     - https://cdn.myshoptet.com/batch-products-update.jsonl
       x-shoptet-async-endpoint: true
+  /api/price-lists:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - priceLists
+                    properties:
+                      priceLists:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/pricelist'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+                required:
+                  - data
+                  - errors
+                  - metadata
+                additionalProperties: false
+      summary: List of price lists
+      operationId: getPriceLists
+      description: |-
+        Listing of all price lists set up in e-shop. Does not contain the
+        paging, always lists all price lists.
+      tags:
+        - Price lists
+      parameters:
+        - $ref: '#/components/parameters/DefaultContentType'
+    post:
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/pricelist'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+                required:
+                  - data
+                  - errors
+                  - metadata
+                additionalProperties: false
+      summary: Price list insertion
+      operationId: createPriceListEntity
+      description: ''
+      tags:
+        - Price lists
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                      maxLength: 128
+                      description: Name of the price list
+                      examples:
+                        - Hlavní ceník
+      parameters:
+        - $ref: '#/components/parameters/DefaultContentType'
+  /api/price-lists/{id}:
+    delete:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+                required:
+                  - data
+                  - errors
+                  - metadata
+                additionalProperties: false
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: invalid-request-data
+                    message: It is not possible to delete default pricelist.
+                    instance: integration-call
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+        '423':
+          description: Locked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: pricelist-blocked
+                    message: |-
+                      Product import is running now. Removing pricelists has
+                      been temporarily prohibited.
+                    instance: integration-call
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+      summary: Price list delete
+      operationId: deletePriceListEntity
+      description: |-
+        Deletion of a price list can fail with error `423` in case of running
+        import.
+
+
+        Note that `GET` and `PATCH` on this path are reserved for reading and
+        updating the price list entity itself and are not served yet — they
+        currently answer `405 Method Not Allowed`. To read or update the prices
+        inside a price list, use `/api/price-lists/{id}/prices`.
+      tags:
+        - Price lists
+      parameters:
+        - name: id
+          in: path
+          description: Price list ID
+          required: true
+          example: 1
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/DefaultContentType'
+  /api/price-lists/{id}/prices:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - prices
+                    properties:
+                      prices:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/priceListPrice'
+                      paginator:
+                        $ref: '#/components/schemas/paginator'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+                required:
+                  - data
+                  - errors
+                  - metadata
+                additionalProperties: false
+      summary: Price list prices
+      operationId: getPriceListPrices
+      description: >-
+        Prices of every product (variant) in the given price list, with info on
+        discounts and limitations of purchase (minimum and maximum amount).
+      tags:
+        - Price list prices
+      parameters:
+        - name: id
+          in: path
+          description: Price list ID
+          required: true
+          example: 1
+          schema:
+            type: integer
+        - name: code
+          in: query
+          description: Product variant code
+          example: 106/BIL
+          schema:
+            type: string
+        - name: guid
+          in: query
+          description: Product GUID
+          example: 94fe7ffc-7481-11e8-8216-002590dad85e
+          schema:
+            type: string
+        - name: itemsPerPage
+          in: query
+          description: Returned items per page. Default and max value is 100.
+          example: 50
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/DefaultPageParameter'
+        - $ref: '#/components/parameters/DefaultContentType'
+    patch:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: pricelist-code-not-found
+                    message: >-
+                      The product with code '43/BILL' doesn't exist. Code
+                      skipped.
+                    instance: 43/BILL
+                  - errorCode: invalid-request-data
+                    message: |-
+                      Input data for code '43/BIL' is not correct. Code
+                      skipped.
+                    instance: 43/BIL
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: invalid-request-data
+                    message: >-
+                      Input data for code "0001" is not correct. Cannot set
+                      "price.buyPrice" and "prices.purchasePrice" at the same
+                      time. Please use "prices.purchasePrice" only as buy price
+                      is deprecated. Code skipped.
+                    instance: '0001'
+                  - errorCode: invalid-request-data
+                    message: >-
+                      Input data for code "0001" is not correct. Invalid
+                      "vatRate" value. Code skipped.
+                    instance: '0001'
+                  - errorCode: invalid-request-data
+                    message: >-
+                      Input data for code "0001" is not correct. Invalid
+                      "purchasePriceVatRate" value. Code skipped.
+                    instance: '0001'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: pricelist-not-found
+                    message: Pricelist with id "11" not found.
+                    instance: '11'
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+      summary: Update price list prices
+      operationId: updatePriceListPrices
+      description: >-
+        This endpoint allows updating price fields and other attributes of the
+        prices in a price list, per product (variant).
+
+
+        You can request multiple updates at once; the maximum is 300 updates per
+        request.
+
+
+        The request must contain a product variant code `code` and at least one
+        of the `price`, `priceWithVat`, `priceWithoutVat`, `orderableAmount` or
+        `sales` objects.
+
+        Send only fields you want to change, the others will stay untouched. Be
+        aware of the difference between
+
+
+
+        - not providing a field: the field will not be changed
+
+
+
+        - providing e. g. `data.price.buyPrice: null` will remove the price
+
+
+
+        - on projects with the zero-price feature flag enabled, a literal `0`
+
+        stores a genuine price of zero instead of clearing it — for
+
+        `data.price.price` / `data.price.commonPrice` this is an orderable,
+
+        free item; `data.price.buyPrice` (and `data.prices.purchasePrice.price`)
+
+        is the purchase cost and does not affect orderability. Use `null` to
+
+        remove a price. Projects without the flag enabled (the default) keep
+
+        the legacy behavior, where a literal `0` removes the price the same
+
+        way `null` does
+
+
+
+        In case the request will be properly formatted, but an error occurs for
+        one of the records, the correct records
+
+        will be updated, the response will be `200 OK` and there will be records
+        in the `errors` array for each failed
+
+        record. If all records are incorrect, the response code will be `400 BAD
+        REQUEST` instead.
+
+
+
+        If you set `includingVat` or `vatRate` field, current data for product
+        (or variant) will be recalculated. (even through untouched by your
+        request)
+
+
+        Object `price` directly sets price of product, without recalculating.
+
+
+        Object `priceWithVat` sets price of product, respecting it is price
+        **with** VAT and thus recalculating if needed.
+
+
+        Object `priceWithoutVat` sets price of product, respecting it is price
+        **without** VAT and thus recalculating if needed.
+
+
+
+        Note, that you can change `buyPrice` only for default price list! For
+        others price lists, value stays `null`.
+
+
+
+        For non-vat payer e-shops, `vatRate` and `includingVat` fields are
+        forbidden to use and fields `price`, `priceWithVat` and
+        `priceWithoutVat`
+
+        all works the same.
+
+
+        In order to change the currency of the prices, you will need to have the
+        Currencies module (Cizí měny) activated on the customer's e-shop.
+
+        Note that if you change the currency code of the price list, all prices
+        will not be recalculated to the new currency; only the currency code
+        will be changed.
+      tags:
+        - Price list prices
+      parameters:
+        - name: id
+          in: path
+          description: Price list ID
+          required: true
+          example: 1
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/DefaultContentType'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  $ref: '#/components/schemas/pricelistUpdate'
+  /api/price-lists/{id}/prices/batch:
+    patch:
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - jobId
+                    properties:
+                      jobId:
+                        examples:
+                          - ad24xod
+                        description: token of job
+                        type: string
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                required:
+                  - data
+                  - errors
+                additionalProperties: false
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              example:
+                data: null
+                errors:
+                  - errorCode: file-not-found
+                    message: File "https://jsonlines.org/pricelists.jsonl" not found.
+                    instance: batchFileUrlPath
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+              example:
+                data: null
+                errors:
+                  - errorCode: batch-job-already-running
+                    message: Concurrent job already running!
+                    instance: pricelist-batch-update
+                  - errorCode: another-import-is-running
+                    message: Another import is running. Please try again later.
+                    instance: pricelist-batch-update
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+              example:
+                data: null
+                errors:
+                  - errorCode: invalid-url
+                    message: >-
+                      Invalid or disallowed URL
+                      "https://jsonlines.org/pricelists.jsonl".
+                    instance: batchFileUrlPath
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+              example:
+                data: null
+                errors:
+                  - errorCode: batch-import-unexpected-error
+                    message: Unknown error.
+                    instance: pricelist-batch-update
+      summary: Batch price list prices update
+      operationId: updatePriceListPricesBatch
+      description: >-
+        This endpoint allows updating multiple prices at once. Price fields and
+        other attributes of the prices in a price list, per product (variant),
+        can be updated. Batch update is processed asynchronously in same way as
+        for example products snapshot, but it does not have `resultUrl` with
+        prices to download in response. Instead, you can check attribute `log`
+        which contains successfully updated prices and errors.
+
+
+        See how [Asynchronous
+        requests](https://developers.shoptet.com/asynchronous-requests/) work on
+        our developer's portal.
+
+
+        File with data for update must be in JSONL
+        ([jsonlines](https://jsonlines.org/)) format. Each line must contain one
+        price list price in JSON format. Maximum size of file is 100MB.
+
+
+        Structure of JSON row is same as structure of JSON for a single price
+        list prices update. See [Price list prices update
+        schema](https://api.docs.shoptet.com/shoptet-api/openapi/price-list-prices/updatepricelistprices)
+        for more details.
+
+
+        Asynchronous job process jsonl file row by row and try to validate and
+        save data. If there is any error, row is skipped and error is logged,
+        but it does not stop processing of other rows.
+
+
+        In Log, every product is identified by its position in file (starting
+        from 1).
+
+
+        The request must contain a product variant code `code` and at least one
+        of the `price`, `priceWithVat`, `priceWithoutVat`, `orderableAmount` or
+        `sales` objects. Send only fields you want to change, the others will
+        stay untouched. Be aware of the difference between
+
+
+        - not providing a field: the field will not be changed
+
+
+        - providing e. g. `data.price.buyPrice: null` will remove the price
+
+
+        If you set `includingVat` or `vatRate` field, current data for product
+        (or variant) will be recalculated. (even through untouched by your
+        request)
+
+
+        Object `price` directly sets price of product, without recalculating.
+
+
+        Object `priceWithVat` sets price of product, respecting it is price
+        **with** VAT and thus recalculating if needed.
+
+
+        Object `priceWithoutVat` sets price of product, respecting it is price
+        **without** VAT and thus recalculating if needed.
+
+
+        Note, that you can change `buyPrice` only for default price list! For
+        others price lists, value stays `null`.
+
+
+        For non-vat payer e-shops, `vatRate` and `includingVat` fields are
+        forbidden to use and fields `price`, `priceWithVat` and
+        `priceWithoutVat` all works the same.
+
+
+        In order to change the currency of the prices, you will need to have the
+        Currencies module activated on the customer's e-shop.
+
+
+        Note that if you change the currency code of the price list, all prices
+        will not be recalculated to the new currency; only the currency code
+        will be changed.
+      tags:
+        - Price list prices
+      parameters:
+        - name: id
+          in: path
+          description: Price list ID
+          required: true
+          example: 1
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/DefaultContentType'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - batchFileUrlPath
+              properties:
+                batchFileUrlPath:
+                  type: string
+                  description: >-
+                    Url to batch file with products data. File must be in JSONL
+                    format.
+                  examples:
+                    - https://cdn.myshoptet.com/batch-products-update.jsonl
+      x-shoptet-async-endpoint: true
+  /api/price-lists/{id}/prices/snapshot:
+    get:
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - jobId
+                    properties:
+                      jobId:
+                        examples:
+                          - ad24xod
+                        description: token of job
+                        type: string
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: required-webhook-registration
+                    message: >-
+                      Webhook for job:finished is not registered. Please
+                      register job:finished webhook.
+                    instance: job:finished
+                  - errorCode: too-many-enqueued-jobs
+                    message: Too many enqueued jobs, please try again later.
+                    instance: payload
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: duplicated-job-enqueued
+                    message: >-
+                      Job "pricelist-snapshot" with same parameters is already
+                      enqueued and waiting for process. Please try again, after
+                      job is done.
+                    instance: pricelist-snapshot
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+      summary: Snapshot of all prices in a price list
+      operationId: getPriceListPricesSnapshot
+      description: >-
+        Using this endpoint, you can get all prices in the given price list
+        asynchronously, with the same information per price as the Price list
+        prices endpoint. See how [Asynchronous
+        requests](https://developers.shoptet.com/asynchronous-requests/) work on
+        our developer’s portal.
+
+
+
+        Response will be in [jsonlines](https://jsonlines.org/) format with each
+        price taking one line of output file.
+
+
+
+        One price in the response has the same format as one item of the price
+        list prices response. See [Price list price snapshot
+        schema](/shoptet-api/openapi/snapshot/pricelistpricesnapshot) for more
+        details.
+
+
+
+        The job is the same as the one behind `/api/pricelists/{id}/snapshot`,
+        so a snapshot already running on that path will make this one answer
+        `409`.
+
+
+
+        Result file is compressed using GZIP.
+      tags:
+        - Price list prices
+      parameters:
+        - name: id
+          in: path
+          description: Price list ID
+          required: true
+          example: 1
+          schema:
+            type: integer
+        - name: codeFrom
+          in: query
+          description: Export prices with code after given value
+          example: '0000000006'
+          schema:
+            type: string
+        - name: codeTo
+          in: query
+          description: Export prices with code before given value
+          example: '0000000006'
+          schema:
+            type: string
+        - name: actionPriceDateFrom
+          in: query
+          description: Export prices with active action price date after date
+          example: '2019-09-05'
+          schema:
+            type: string
+        - name: actionPriceDateTo
+          in: query
+          description: Export prices with active action price before date
+          example: '2019-09-05'
+          schema:
+            type: string
+        - name: vatRate
+          in: query
+          description: Export prices with given vat rate
+          example: '21.0'
+          schema:
+            type: string
+        - name: currencyCode
+          in: query
+          description: Export prices with given currency code
+          example: CZK
+          schema:
+            type: string
+        - name: orderableMinAmount
+          in: query
+          description: Export prices with orderable minimal amount
+          example: 10
+          schema:
+            type: number
+        - name: orderableMinAmountFrom
+          in: query
+          description: |-
+            Export prices with orderable minimal amount amount after
+            given value
+          example: 10
+          schema:
+            type: number
+        - name: orderableMinAmountTo
+          in: query
+          description: |-
+            Export prices with orderable minimal amount before given
+            value
+          example: 100
+          schema:
+            type: number
+        - name: orderableMaxAmount
+          in: query
+          description: Export prices with orderable maximal amount
+          example: 20
+          schema:
+            type: number
+        - name: orderableMaxAmountFrom
+          in: query
+          description: |-
+            Export prices with orderable maximal amount after given
+            value
+          example: 20
+          schema:
+            type: number
+        - name: orderableMaxAmountTo
+          in: query
+          description: |-
+            Export prices with orderable maximal amount before given
+            value
+          example: 200
+          schema:
+            type: number
+        - $ref: '#/components/parameters/DefaultContentType'
+      x-shoptet-snapshot-endpoint: true
+      x-shoptet-response-ref: '#/definitions/priceListPriceSnapshot'
+  /api/price-lists/prices/snapshot:
+    get:
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - jobId
+                    properties:
+                      jobId:
+                        examples:
+                          - ad24xod
+                        description: token of job
+                        type: string
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: required-webhook-registration
+                    message: >-
+                      Webhook for job:finished is not registered. Please
+                      register job:finished webhook.
+                    instance: job:finished
+                  - errorCode: too-many-enqueued-jobs
+                    message: Too many enqueued jobs, please try again later.
+                    instance: payload
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: duplicated-job-enqueued
+                    message: >-
+                      Job "products-snapshot-pricelist" with same parameters is
+                      already enqueued and waiting for process. Please try
+                      again, after job is done.
+                    instance: products-snapshot-pricelist
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+      summary: Snapshot of all prices across all price lists
+      operationId: getAllPriceListPricesSnapshot
+      description: >-
+        Using this endpoint, you can get list of all products with basic data
+        such as product guid, id, code and its prices across all price lists.
+
+
+
+        Response will be in [jsonlines](https://jsonlines.org/) format with each
+        product taking one line of output file. See [Product price list price
+        snapshot
+        schema](/shoptet-api/openapi/snapshot/productpricelistpricesnapshot) for
+        more details.
+
+
+
+        The job is the same as the one behind
+        `/api/products/snapshot/pricelists`, so a snapshot already running on
+        that path will make this one answer `409`.
+
+
+
+        Result file is compressed using GZIP.
+      tags:
+        - Price list prices
+      parameters:
+        - $ref: '#/components/parameters/DefaultContentType'
+      x-shoptet-snapshot-endpoint: true
+      x-shoptet-response-ref: '#/definitions/productPriceListPriceSnapshot'
   /api/sales-channels:
     get:
       responses:
@@ -31584,29 +32690,6 @@ paths:
                   - errors
                   - metadata
                 additionalProperties: false
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type:
-                      - object
-                      - 'null'
-                  errors:
-                    $ref: '#/components/schemas/Errors'
-                  metadata:
-                    $ref: '#/components/schemas/Metadata'
-              example:
-                data: null
-                errors:
-                  - errorCode: missing-module
-                    message: Module "Sales channel" is not active.
-                    instance: salesChannel
-                metadata:
-                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
         '404':
           description: Not Found
           content:
@@ -31634,9 +32717,7 @@ paths:
                     $ref: '#/components/schemas/Metadata'
       summary: Sales channel detail
       operationId: getSalesChannelsDetail
-      description: >-
-        Information about the detail of the sales channels. Module `Sales
-        Channel` is required.
+      description: Information about the detail of the sales channels.
       tags:
         - Sales channels
       parameters:
@@ -31862,29 +32943,6 @@ paths:
                   - errors
                   - metadata
                 additionalProperties: false
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type:
-                      - object
-                      - 'null'
-                  errors:
-                    $ref: '#/components/schemas/Errors'
-                  metadata:
-                    $ref: '#/components/schemas/Metadata'
-              example:
-                data: null
-                errors:
-                  - errorCode: missing-module
-                    message: Module "Sales channel" is not active.
-                    instance: salesChannel
-                metadata:
-                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
         '404':
           description: Not Found
           content:
@@ -31910,9 +32968,7 @@ paths:
                     $ref: '#/components/schemas/Metadata'
       summary: Sales channel detail by ID
       operationId: getSalesChannelsDetailById
-      description: >-
-        Information about the detail of the sales channels. Module `Sales
-        Channel` is required.
+      description: Information about the detail of the sales channels.
       tags:
         - Sales channels
       parameters:
@@ -37238,6 +38294,11 @@ paths:
                   - errorCode: webhook-event-already-registered
                     message: Webhook already exists for this event.
                     instance: order:create
+                  - errorCode: webhook-send-payload-not-supported
+                    message: >-
+                      Event "shippingMethod:change" does not support
+                      sendPayload.
+                    instance: shippingMethod:change
       summary: Registration of new webhook
       operationId: registerNewWebhook
       description: >-
@@ -37324,7 +38385,8 @@ paths:
                           Only supported for events marked as payload-supported
                           in the [Webhook event
                           types](#section/code-lists/webhook-event-types) code
-                          list. For other events, this field has no effect.
+                          list. Setting it for an unsupported event is rejected
+                          with the `webhook-send-payload-not-supported` error.
       parameters:
         - $ref: '#/components/parameters/DefaultContentType'
   /api/webhooks/{id}:
@@ -37413,6 +38475,43 @@ paths:
                   - errors
                   - metadata
                 additionalProperties: false
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              examples:
+                Unsupported sendPayload:
+                  value:
+                    data: null
+                    errors:
+                      - errorCode: webhook-send-payload-not-supported
+                        message: Event "order:delete" does not support sendPayload.
+                        instance: order:delete
+                    metadata:
+                      requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+                Invalid webhook url:
+                  value:
+                    data: null
+                    errors:
+                      - errorCode: webhook-url-wrong-format
+                        message: >-
+                          Host in webhook url
+                          "https://192.168.1.1/webhook/test/?event=updated" is
+                          not valid.
+                        instance: https://192.168.1.1/webhook/test/?event=updated
+                    metadata:
+                      requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
         '404':
           description: Not Found
           content:
@@ -37441,6 +38540,9 @@ paths:
       description: |-
         Modification of the existing webhook. The `id` of the webhook serves as
         the identifier. Using just one call, only one webhook can be modified.
+
+        Setting `sendPayload` for an event that does not support it fails with
+        `400` and the `webhook-send-payload-not-supported` error.
 
 
         **Please note that `url` cannot be longer than 2000 characters.**
@@ -37487,7 +38589,8 @@ paths:
                         Only supported for events marked as payload-supported in
                         the [Webhook event
                         types](#section/code-lists/webhook-event-types) code
-                        list. For other events, this field has no effect.
+                        list. Setting it for an unsupported event is rejected
+                        with the `webhook-send-payload-not-supported` error.
     delete:
       responses:
         '200':
@@ -38420,19 +39523,21 @@ paths:
                         - intime-colli-small
                     visible:
                       type: boolean
+                      deprecated: true
                       description: >-
-                        whether the shipping method will be visible. When the
-                        `Sales channel` module is active, visibility follows the
-                        sales-channel bindings instead — see
-                        `salesChannelGuids`.
+                        [DEPRECATED] use `salesChannelGuids` — visibility
+                        follows the sales-channel bindings. Ignored when
+                        `salesChannelGuids` is sent. Sent alone, it still works
+                        for now: `true` binds the method to the primary market's
+                        sales channel, `false` binds it nowhere.
                       examples:
                         - true
                     visibility:
                       type: boolean
                       deprecated: true
                       description: >-
-                        [DEPRECATED] use `visible`. Both are accepted; sending
-                        contradicting values is rejected with
+                        [DEPRECATED] use `salesChannelGuids`. Alias of
+                        `visible`; sending contradicting values is rejected with
                         `invalid-parameter`.
                       examples:
                         - true
@@ -38936,6 +40041,656 @@ paths:
             type: string
             enum:
               - priceList
+        - $ref: '#/components/parameters/DefaultContentType'
+    patch:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - guid
+                      - name
+                      - description
+                      - shippingCompany
+                      - trackingUrl
+                      - visible
+                      - priority
+                      - wholesale
+                      - logoUrl
+                    properties:
+                      guid:
+                        $ref: '#/components/schemas/typeGuid'
+                        description: Unique identifier of the shipping method
+                      name:
+                        type: string
+                        description: name of shipping method, as can be seen in e-shop.
+                        examples:
+                          - Shipping company
+                      description:
+                        type:
+                          - string
+                          - 'null'
+                        description: >-
+                          additional information about the shipping method. (can
+                          be null)
+                        examples:
+                          - Delivery within 48 hours
+                      shippingCompany:
+                        type:
+                          - object
+                          - 'null'
+                        required:
+                          - id
+                          - code
+                          - name
+                        description: Shipping company
+                        additionalProperties: false
+                        properties:
+                          id:
+                            type: integer
+                            description: shipping method ID.
+                            examples:
+                              - 21
+                          code:
+                            type: string
+                            description: shipping company identifier.
+                            examples:
+                              - intime
+                          name:
+                            type: string
+                            description: shipping company name.
+                            examples:
+                              - IN TIME
+                      trackingUrl:
+                        type:
+                          - string
+                          - 'null'
+                        description: package trace link pattern
+                        examples:
+                          - >-
+                            http://www.ppl.cz/main2.aspx?cls=Package&idSearch=#PACKAGE_NUMBER#
+                      visible:
+                        type: boolean
+                        description: Is the shipping method visible?
+                        examples:
+                          - true
+                      priority:
+                        type:
+                          - integer
+                          - 'null'
+                        description: sequence within the list
+                        examples:
+                          - 16
+                      wholesale:
+                        type: boolean
+                        description: >-
+                          Is the shipping method available for wholesale
+                          customers?
+                        examples:
+                          - true
+                      logoUrl:
+                        type:
+                          - string
+                          - 'null'
+                        description: URL of the shipping company logo
+                        examples:
+                          - https://www.example.com/logo.png
+                      priceList:
+                        type: object
+                        description: >-
+                          Pricing and pricelist settings of the shipping method
+                          as configured in the administration. Present only when
+                          requested via the `include=priceList` query parameter.
+                          Values reflect the stored configuration, not the final
+                          price charged to the customer (which the storefront
+                          derives from `price`, `includingVat` and the e-shop
+                          VAT-display mode).
+                        additionalProperties: false
+                        required:
+                          - allowFreeShipping
+                          - priceTiers
+                          - pairedPaymentMethodGuids
+                        properties:
+                          allowFreeShipping:
+                            type: boolean
+                            description: >-
+                              Whether this method's price is zeroed when an
+                              external free-shipping condition applies (e.g. a
+                              free-delivery discount coupon, or a product
+                              flagged for free shipping).
+                            examples:
+                              - true
+                          priceTiers:
+                            type: array
+                            description: >-
+                              Price tiers by weight and/or order price, per
+                              country/region and currency.
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - countryCode
+                                - regionId
+                                - regionName
+                                - currencyCode
+                                - priceFrom
+                                - priceUntil
+                                - weightFrom
+                                - weightUntil
+                                - price
+                                - includingVat
+                                - taxClassId
+                                - vatRate
+                              properties:
+                                countryCode:
+                                  type: string
+                                  description: Country code the tier applies to.
+                                  examples:
+                                    - cz
+                                regionId:
+                                  type:
+                                    - integer
+                                    - 'null'
+                                  description: >-
+                                    Region identifier the tier applies to. (can
+                                    be null)
+                                  examples:
+                                    - 5
+                                regionName:
+                                  type:
+                                    - string
+                                    - 'null'
+                                  description: >-
+                                    Region name the tier applies to. (can be
+                                    null)
+                                  examples:
+                                    - Praha
+                                currencyCode:
+                                  type: string
+                                  description: Currency code the tier price is defined in.
+                                  examples:
+                                    - CZK
+                                priceFrom:
+                                  $ref: '#/components/schemas/typePriceNullable'
+                                  description: >-
+                                    Lower bound of the order price range the
+                                    tier applies to. (can be null)
+                                priceUntil:
+                                  $ref: '#/components/schemas/typePriceNullable'
+                                  description: >-
+                                    Upper bound of the order price range the
+                                    tier applies to. (can be null)
+                                weightFrom:
+                                  $ref: '#/components/schemas/typeWeightUnlimited'
+                                  description: >-
+                                    Lower bound of the weight range (kg) the
+                                    tier applies to. Applied only when the
+                                    e-shop uses weight-dependent shipping
+                                    pricing. (can be null)
+                                weightUntil:
+                                  $ref: '#/components/schemas/typeWeightUnlimited'
+                                  description: >-
+                                    Upper bound of the weight range (kg) the
+                                    tier applies to. Applied only when the
+                                    e-shop uses weight-dependent shipping
+                                    pricing. (can be null)
+                                price:
+                                  $ref: '#/components/schemas/typePrice'
+                                  description: >-
+                                    Shipping price for the tier. Value 0.00
+                                    means free shipping.
+                                includingVat:
+                                  type: boolean
+                                  description: Whether the configured `price` includes VAT.
+                                  examples:
+                                    - true
+                                taxClassId:
+                                  type:
+                                    - integer
+                                    - 'null'
+                                  description: >-
+                                    Tax class identifier applied to the tier
+                                    price. (can be null)
+                                  examples:
+                                    - 1
+                                vatRate:
+                                  $ref: '#/components/schemas/typeVatRateNullable'
+                                  description: >-
+                                    VAT rate (percentage) of the tier's tax
+                                    class in the e-shop default tax zone. (can
+                                    be null)
+                          pairedPaymentMethodGuids:
+                            type: array
+                            description: >-
+                              GUIDs of payment methods paired with this shipping
+                              method.
+                            items:
+                              $ref: '#/components/schemas/typeGuid'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+                required:
+                  - data
+                  - errors
+                  - metadata
+                additionalProperties: false
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+              example:
+                data: null
+                errors:
+                  - errorCode: invalid-parameter
+                    message: Country with code "xx" not found.
+                    instance: data.priceList.priceTiers.0.countryCode
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+              example:
+                data: null
+                errors:
+                  - errorCode: shipping-method-not-owned
+                    message: >-
+                      This shipping method belongs to another service and cannot
+                      be modified.
+                    instance: guid
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+              example:
+                data: null
+                errors:
+                  - errorCode: shipping-method-not-found
+                    message: >-
+                      Shipping method with GUID
+                      "b57f91bb-e920-11e0-baa3-7dc668b75ca8" not found.
+                    instance: b57f91bb-e920-11e0-baa3-7dc668b75ca8
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+              example:
+                data: null
+                errors:
+                  - errorCode: database-conflict
+                    message: Shipping method and sales channel relation already exists.
+                    instance: data.salesChannelGuids
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+              example:
+                data: null
+                errors:
+                  - errorCode: shipping-method-update-failed
+                    message: Shipping method could not be updated.
+                    instance: data
+      summary: Updating a shipping method
+      operationId: updateShippingMethod
+      description: >-
+        Updates an existing shipping method, including its pricelist, so that
+        shipping costs can be
+
+        kept in sync from an ERP or a carrier integration without any follow-up
+        work in the
+
+        administration.
+
+
+
+        The update is partial. Every field is optional, a field that is not sent
+        keeps its current
+
+        value, and the request body must contain at least one field. The
+        response is the same
+
+        representation `GET /api/shipping-methods/{guid}?include=priceList`
+        returns.
+
+
+
+        **Pricelist.** `priceList.priceTiers` replaces the whole pricelist: send
+        the complete set of
+
+        tiers the method should end up with, which is how a tier is added,
+        changed or removed. An
+
+        individual tier cannot be addressed on its own, because a tier has no
+        identifier that survives
+
+        a change of shipping service. The array must not be empty — a method
+        always has at least one
+
+        tier.
+
+
+
+        **Visibility.** On an e-shop with the Sales channel module active,
+        `visible` is derived from
+
+        the sales-channel bindings, so a request that sends only `visible` has
+        no effect there; send
+
+        `salesChannelGuids` instead. Without the module, `visible` applies
+        directly. `visibility` is a
+
+        deprecated alias of `visible`; sending both with contradicting values is
+        rejected.
+
+
+
+        **Ownership.** A token belonging to an addon may only update the
+        shipping methods created from
+
+        that addon's own shipping service; anything else is rejected with
+        `shipping-method-not-owned`.
+
+        A merchant's own API token is not restricted this way.
+
+
+
+        **Changing the carrier.** Sending `shippingMethodCode` repoints the
+        method at another shipping
+
+        service. That creates a new version of the method internally — the GUID,
+        the pricelist and the
+
+        listing position are carried over, so the method stays addressable at
+        the same URL.
+
+
+
+        Fields that are **not** updatable here: `trackingUrl` (it belongs to the
+        carrier, not to the
+
+        individual method, and is shared by every e-shop using that carrier),
+        `wholesale` and `logo`.
+      tags:
+        - Shipping methods
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  type: object
+                  minProperties: 1
+                  additionalProperties: false
+                  description: >-
+                    Every field is optional. A field that is not sent keeps its
+                    current value; a field sent as `null` is set to null where
+                    the field is nullable.
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                      maxLength: 255
+                      description: Name of the shipping method
+                      examples:
+                        - Shipping name
+                    description:
+                      type:
+                        - string
+                        - 'null'
+                      description: additional information about the shipping method.
+                      examples:
+                        - Shipping description
+                    shippingMethodCode:
+                      type: string
+                      minLength: 1
+                      description: >-
+                        type of shipping method (operator) - identifier assigned
+                        by Shoptet. Changing it repoints the method at another
+                        shipping service and creates a new version of the
+                        method; the GUID stays the same.
+                      examples:
+                        - intime-colli-small
+                    visible:
+                      type: boolean
+                      deprecated: true
+                      description: >-
+                        [DEPRECATED] use `salesChannelGuids` — visibility
+                        follows the sales-channel bindings. Ignored when
+                        `salesChannelGuids` is sent. Sent alone, it still works
+                        for now: `false` detaches the method from every market
+                        sales channel, `true` keeps the current markets, or
+                        binds the method to the primary market when it has none.
+                      examples:
+                        - true
+                    visibility:
+                      type: boolean
+                      deprecated: true
+                      description: >-
+                        [DEPRECATED] use `salesChannelGuids`. Alias of
+                        `visible`; sending contradicting values is rejected with
+                        `invalid-parameter`.
+                      examples:
+                        - true
+                    priority:
+                      type: integer
+                      minimum: 1
+                      maximum: 65535
+                      description: >-
+                        1-based position of the method within the visible
+                        listing of its retail/wholesale group. The method is
+                        moved to that position and the others shift around it. A
+                        position beyond the end of the listing is clamped to
+                        last.
+                      examples:
+                        - 3
+                    atypicalProductAllowed:
+                      type: boolean
+                      description: >-
+                        flag, whether products marked as atypical (oversized)
+                        may be shipped with this method.
+                      examples:
+                        - false
+                    cPostBoxSize:
+                      type:
+                        - string
+                        - 'null'
+                      enum:
+                        - S
+                        - M
+                        - L
+                        - XL
+                        - null
+                      description: >-
+                        Česká pošta box size. Applies only to Česká pošta box
+                        services and is ignored otherwise.
+                      examples:
+                        - M
+                    salesChannelGuids:
+                      type: array
+                      description: >-
+                        GUIDs of the sales channels the shipping method is
+                        offered in. Requires the active `Sales channel` module.
+                        Replaces the current bindings; an empty array detaches
+                        the method from every sales channel.
+                      items:
+                        $ref: '#/components/schemas/typeGuid'
+                    priceList:
+                      type: object
+                      additionalProperties: false
+                      description: >-
+                        Pricing configuration of the shipping method. Mirrors
+                        the `priceList` object of `GET
+                        /api/shipping-methods/{guid}?include=priceList`.
+                      properties:
+                        allowFreeShipping:
+                          type: boolean
+                          description: >-
+                            Whether this method's price is zeroed when an
+                            external free-shipping condition applies (e.g. a
+                            free-delivery discount coupon, or a product flagged
+                            for free shipping).
+                          examples:
+                            - true
+                        pairedPaymentMethodGuids:
+                          type: array
+                          description: >-
+                            GUIDs of the payment methods allowed with this
+                            shipping method. Replaces the current pairings; an
+                            empty array pairs none.
+                          items:
+                            $ref: '#/components/schemas/typeGuid'
+                        priceTiers:
+                          type: array
+                          minItems: 1
+                          description: >-
+                            Price tiers by weight and/or order price, per
+                            country/region and currency. Replaces the whole
+                            pricelist — send the complete set of tiers the
+                            method should end up with, which is how a tier is
+                            added, changed or removed. Individual tiers cannot
+                            be addressed on their own: a tier has no identifier
+                            that survives a change of shipping service. Must not
+                            be empty.
+                          items:
+                            type: object
+                            required:
+                              - countryCode
+                              - currencyCode
+                              - price
+                            additionalProperties: false
+                            properties:
+                              countryCode:
+                                type: string
+                                minLength: 2
+                                description: Country code the tier applies to.
+                                examples:
+                                  - cz
+                              regionId:
+                                type:
+                                  - integer
+                                  - 'null'
+                                minimum: 1
+                                description: >-
+                                  Region identifier the tier applies to. Must
+                                  belong to `countryCode`. (can be null)
+                                examples:
+                                  - 5
+                              currencyCode:
+                                type: string
+                                minLength: 3
+                                maxLength: 3
+                                description: Currency code the tier price is defined in.
+                                examples:
+                                  - CZK
+                              priceFrom:
+                                $ref: '#/components/schemas/typePriceNullable'
+                                description: >-
+                                  Lower bound of the order price range the tier
+                                  applies to. (can be null)
+                              priceUntil:
+                                $ref: '#/components/schemas/typePriceNullable'
+                                description: >-
+                                  Upper bound of the order price range the tier
+                                  applies to. (can be null)
+                              weightFrom:
+                                $ref: '#/components/schemas/typeWeightUnlimited'
+                                description: >-
+                                  Lower bound of the weight range (kg) the tier
+                                  applies to. Applied only when the e-shop uses
+                                  weight-dependent shipping pricing. (can be
+                                  null)
+                              weightUntil:
+                                $ref: '#/components/schemas/typeWeightUnlimited'
+                                description: >-
+                                  Upper bound of the weight range (kg) the tier
+                                  applies to. Applied only when the e-shop uses
+                                  weight-dependent shipping pricing. (can be
+                                  null)
+                              price:
+                                $ref: '#/components/schemas/typePrice'
+                                description: >-
+                                  Shipping price for the tier. Value 0.00 means
+                                  free shipping. Must not be negative.
+                              includingVat:
+                                type: boolean
+                                description: >-
+                                  Whether the supplied `price` includes VAT.
+                                  Defaults to the e-shop setting.
+                                examples:
+                                  - true
+                              taxClassId:
+                                type:
+                                  - integer
+                                  - 'null'
+                                minimum: 1
+                                description: >-
+                                  Tax class identifier applied to the tier
+                                  price. Defaults to the e-shop default tax
+                                  class. (can be null)
+                                examples:
+                                  - 1
+      parameters:
+        - name: guid
+          in: path
+          required: true
+          description: Unique identifier of the shipping method.
+          example: b57f91bb-e920-11e0-baa3-7dc668b75ca8
+          schema:
+            type: string
         - $ref: '#/components/parameters/DefaultContentType'
   /api/shipping-request/{shippingRequestCode}/{shippingGuid}:
     get:
@@ -52585,6 +54340,40 @@ components:
           description: price list name
           examples:
             - Hlavní ceník
+    priceListPrice:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/pricelistDetail'
+    priceListPriceSnapshot:
+      title: Price list price
+      x-tags:
+        - Snapshot
+      allOf:
+        - $ref: '#/components/schemas/pricelistDetail'
+    productPriceListPriceSnapshot:
+      title: Product price list price
+      x-tags:
+        - Snapshot
+      required:
+        - productGuid
+        - productId
+      properties:
+        productGuid:
+          $ref: '#/components/schemas/typeGuidUnlimited'
+          description: unique product indicator
+        productId:
+          type: integer
+          description: product identifier
+          examples:
+            - 2
+      allOf:
+        - $ref: '#/components/schemas/pricelistDetail'
+    priceListPriceBatchUpdate:
+      title: Price list price update
+      x-tags:
+        - Batch
+      allOf:
+        - $ref: '#/components/schemas/pricelistUpdate'
     variantPrice:
       type: object
       additionalProperties: false
@@ -54021,6 +55810,47 @@ components:
           type: string
           minLength: 1
           maxLength: 255
+    productImageBatchInsert:
+      type: object
+      additionalProperties: false
+      required:
+        - productGuid
+        - gallery
+        - images
+      properties:
+        productGuid:
+          $ref: '#/components/schemas/typeGuidUnlimited'
+          description: unique product indicator
+        gallery:
+          type: string
+          description: >-
+            name of the gallery the image belongs to (e.g. "shop" for the
+            standard product gallery, "shop360" for the 360° gallery).
+          examples:
+            - shop
+        images:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - sourceUrl
+            properties:
+              sourceUrl:
+                type: string
+                description: url of the image to download
+                minLength: 1
+                maxLength: 2000
+              priority:
+                type: integer
+                description: priority of the image
+                minimum: 1
+                maximum: 65535
+              description:
+                type: string
+                description: description of the image
     productUpdate:
       type: object
       minProperties: 1
@@ -54605,6 +56435,7 @@ components:
         indexName:
           type: string
           minLength: 1
+          maxLength: 250
           description: >-
             String which defines product url. Value is sanitized to fits url
             needs = All characters except [a-zA-Z0-9_] will be converted to `-`.
@@ -60622,6 +62453,12 @@ components:
         - Batch
       allOf:
         - $ref: '#/components/schemas/productBatchDelete'
+    productImageBatchInsertSchema:
+      title: Product image batch insert
+      x-tags:
+        - Batch
+      allOf:
+        - $ref: '#/components/schemas/productImageBatchInsert'
     productSnapshot:
       title: Product
       x-tags:
@@ -60685,6 +62522,7 @@ x-tagGroups:
       - Alternative products
       - Brands
       - Price lists
+      - Price list prices
       - Products
       - Product availabilities
       - Product gifts
