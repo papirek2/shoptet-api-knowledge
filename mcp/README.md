@@ -168,3 +168,27 @@ Přidej do `CLAUDE.md` projektu:
 MCP server `shoptet-mcp` je dostupný s 312 nástroji pro Shoptet API.
 Používej ho pro všechny Shoptet API operace místo ručního psaní HTTP volání.
 ```
+
+### Více e-shopů
+
+Jeden server obslouží libovolný e-shop — token a očekávaná identita se předávají přes env proměnné v **projektové** konfiguraci MCP (`-s project`), takže každý projekt mluví jen se svým e-shopem.
+
+| Env | Význam |
+|-----|--------|
+| `SHOPTET_TOKEN_FILE` | Absolutní cesta k souboru s tokenem. Bez ní se použije legacy `mcp/.shoptet-token` (stávající chování). |
+| `SHOPTET_EXPECTED_ESHOP` | ID e-shopu nebo URL/doména. Při prvním volání se ověří přes `GET /api/eshop`; při neshodě server odmítne **všechna** volání („Token patří e-shopu X, očekáván Y"). |
+| `SHOPTET_READONLY=1` | Jen čtecí (GET) nástroje — zapisovací se v seznamu nástrojů vůbec neobjeví a jejich volání se odmítne. |
+
+```bash
+cd /var/projects/<eshop>
+claude mcp add shoptet-mcp -s project \
+  -e SHOPTET_TOKEN_FILE=/var/projects/<eshop>/secrets/shoptet-token \
+  -e SHOPTET_EXPECTED_ESHOP=<id> \
+  -- node /home/jarvis/shoptet-api-knowledge/mcp/server.js
+# volitelně jen čtení: přidej -e SHOPTET_READONLY=1
+```
+
+Pravidla:
+- Tokeny patří do `/var/projects/<eshop>/secrets/shoptet-token`, soubor `chmod 600` (adresář `secrets/` `chmod 700`). Pokud je soubor čitelný pro ostatní, server vypíše varování na stderr.
+- Vždy nastav `SHOPTET_EXPECTED_ESHOP` — chrání proti tichému čtení/zápisu do cizího e-shopu při záměně tokenu.
+- Kontrola: nástroj `shoptet_whoami` vrátí ID, název a URL e-shopu, zdroj tokenu (jen cestu), stav ověření a read-only režim. Obsah tokenu se nikdy nevypisuje.

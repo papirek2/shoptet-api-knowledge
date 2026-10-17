@@ -12,31 +12,70 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { readFileSync } from "fs";
-import { join, dirname } from "path";
+import { readFileSync, statSync } from "fs";
+import { join, dirname, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 import fetch from "node-fetch";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// CZ: Načti token z lokálního konfiguračního souboru (nikdy neopouští tento stroj)
-// EN: Load token from local config file (never leaves this machine)
+// CZ: Zdroj tokenu: env SHOPTET_TOKEN_FILE (absolutní cesta), jinak legacy mcp/.shoptet-token.
+//     Obsah tokenu se NIKDY nevypisuje (log, stderr, chybové hlášky).
+// EN: Token source: env SHOPTET_TOKEN_FILE (absolute path), else legacy mcp/.shoptet-token.
+//     Token content is NEVER printed (log, stderr, error messages).
+const TOKEN_FILE_ENV = process.env.SHOPTET_TOKEN_FILE;
+const TOKEN_SOURCE = TOKEN_FILE_ENV
+  ? { type: "env", path: TOKEN_FILE_ENV }
+  : { type: "legacy", path: join(__dirname, ".shoptet-token") };
+
 function loadToken() {
-  const configPath = join(__dirname, ".shoptet-token");
-  try {
-    return readFileSync(configPath, "utf-8").trim();
-  } catch (e) {
-    console.error("❌ Token not found. Run: npm run setup");
+  const configPath = TOKEN_SOURCE.path;
+  if (TOKEN_SOURCE.type === "env" && !isAbsolute(configPath)) {
+    console.error(`❌ SHOPTET_TOKEN_FILE musí být absolutní cesta / must be an absolute path: ${configPath}`);
     process.exit(1);
   }
+  let token;
+  try {
+    token = readFileSync(configPath, "utf-8").trim();
+  } catch (e) {
+    if (TOKEN_SOURCE.type === "env") {
+      const reason = e.code === "ENOENT" ? "soubor neexistuje / file not found"
+        : e.code === "EACCES" ? "nedostatečná práva ke čtení / permission denied"
+        : `nelze přečíst / cannot read (${e.code || "unknown"})`;
+      console.error(`❌ SHOPTET_TOKEN_FILE=${configPath}: ${reason}`);
+    } else {
+      console.error("❌ Token not found. Run: npm run setup");
+    }
+    process.exit(1);
+  }
+  if (!token) {
+    console.error(`❌ Token file is empty / soubor s tokenem je prázdný: ${configPath}`);
+    process.exit(1);
+  }
+  try {
+    if (statSync(configPath).mode & 0o004) {
+      console.error(`⚠️  Token file is readable by others / soubor s tokenem je čitelný pro ostatní: ${configPath} — run: chmod 600 ${configPath}`);
+    }
+  } catch (e) { /* ignore */ }
+  return token;
 }
 
 const BASE_URL = "https://api.myshoptet.com";
 const TOKEN = loadToken();
 
+// CZ: SHOPTET_READONLY=1 → povolené jsou jen GET nástroje
+// EN: SHOPTET_READONLY=1 → only GET tools are allowed
+const READONLY = process.env.SHOPTET_READONLY === "1";
+// CZ: SHOPTET_EXPECTED_ESHOP = e-shop ID nebo URL/doména; při neshodě se odmítnou všechna volání
+// EN: SHOPTET_EXPECTED_ESHOP = e-shop ID or URL/domain; on mismatch every call is refused
+const EXPECTED_ESHOP = (process.env.SHOPTET_EXPECTED_ESHOP || "").trim() || null;
+
 // CZ: Shoptet API volání s automatickým error handlingem
 // EN: Shoptet API call with automatic error handling
 async function shoptetRequest(method, url, body) {
+  if (READONLY && method !== "GET") {
+    throw new Error(`Read-only režim (SHOPTET_READONLY=1): metoda ${method} není povolena / method not allowed`);
+  }
   const headers = {
     "Shoptet-Private-API-Token": TOKEN,
     "Content-Type": "application/json",
@@ -13449,6 +13488,89 @@ const TOOLS = [
   }
 ];
 
+// CZ: Mapa nástroj → HTTP metoda, odvozená ze switch níže (zdrojový kód tohoto souboru).
+//     Nástroj bez nalezené metody se v read-only režimu považuje za zapisovací (fail-closed).
+// EN: Tool → HTTP method map, derived from the switch below (this file's source).
+//     A tool without a detected method is treated as non-read in read-only mode (fail-closed).
+const TOOL_METHODS = (() => {
+  const map = {};
+  const src = readFileSync(fileURLToPath(import.meta.url), "utf-8");
+  const re = /\n    case "([^"]+)": \{[\s\S]*?shoptetRequest\('([A-Z]+)'/g;
+  let m;
+  while ((m = re.exec(src)) !== null) map[m[1]] = m[2];
+  return map;
+})();
+const isReadTool = (name) => TOOL_METHODS[name] === "GET";
+
+const WHOAMI_TOOL = {
+  name: "shoptet_whoami",
+  description: "Identita připojeného e-shopu / connected e-shop identity: id, název, URL, zdroj tokenu (jen cesta), stav ověření SHOPTET_EXPECTED_ESHOP a read-only režim.",
+  inputSchema: { type: "object", properties: {} },
+};
+
+// CZ: Identita e-shopu (GET /api/eshop → data.contactInformation) — cachováno v procesu
+// EN: E-shop identity (GET /api/eshop → data.contactInformation) — cached per process
+let eshopInfoPromise = null;
+function getEshopInfo() {
+  if (!eshopInfoPromise) {
+    eshopInfoPromise = shoptetRequest("GET", `${BASE_URL}/api/eshop`).then((res) => {
+      const ci = res?.data?.contactInformation || {};
+      const urls = Array.isArray(res?.data?.urls) ? res.data.urls.map((u) => u?.url).filter(Boolean) : [];
+      return { id: ci.eshopId ?? null, name: ci.eshopName ?? null, url: ci.url ?? null, urls };
+    }).catch((e) => {
+      eshopInfoPromise = null; // CZ: síťovou chybu necachuj / EN: don't cache transient errors
+      throw e;
+    });
+  }
+  return eshopInfoPromise;
+}
+
+const normHost = (v) => String(v || "").trim().toLowerCase()
+  .replace(/^[a-z]+:\/\//, "").replace(/\/.*$/, "").replace(/:\d+$/, "").replace(/^www\./, "");
+
+function matchesExpected(info) {
+  if (/^\d+$/.test(EXPECTED_ESHOP)) return String(info.id) === EXPECTED_ESHOP;
+  const exp = normHost(EXPECTED_ESHOP);
+  return [info.url, ...info.urls].some((u) => u && normHost(u) === exp);
+}
+
+let verification = null; // { ok: boolean, info }
+async function verifyEshop() {
+  if (!EXPECTED_ESHOP) return null;
+  if (!verification) {
+    const info = await getEshopInfo();
+    verification = { ok: matchesExpected(info), info };
+  }
+  return verification;
+}
+function mismatchMessage(info) {
+  const actual = `${info.id ?? "?"} (${info.url || info.name || "?"})`;
+  return `Token patří e-shopu ${actual}, očekáván ${EXPECTED_ESHOP} — všechna volání odmítnuta / all calls refused`;
+}
+
+async function whoami() {
+  let info = null, error = null;
+  try { info = await getEshopInfo(); } catch (e) { error = e.message; }
+  let verificationState;
+  if (!EXPECTED_ESHOP) verificationState = "not_configured";
+  else if (!info) verificationState = "error";
+  else {
+    if (!verification) verification = { ok: matchesExpected(info), info };
+    verificationState = verification.ok ? "ok" : "mismatch";
+  }
+  return {
+    eshopId: info?.id ?? null,
+    eshopName: info?.name ?? null,
+    url: info?.url ?? null,
+    tokenSource: TOKEN_SOURCE.type,
+    tokenFile: TOKEN_SOURCE.path,
+    expectedEshop: EXPECTED_ESHOP,
+    verification: verificationState,
+    readonly: READONLY,
+    ...(error ? { error } : {}),
+  };
+}
+
 // CZ: MCP Server instance
 // EN: MCP Server instance
 const server = new Server(
@@ -13459,7 +13581,8 @@ const server = new Server(
 // CZ: Vrátí seznam všech tools
 // EN: Return list of all tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return { tools: TOOLS };
+  const tools = READONLY ? TOOLS.filter((t) => isReadTool(t.name)) : TOOLS;
+  return { tools: [WHOAMI_TOOL, ...tools] };
 });
 
 // CZ: Zpracování volání tool
@@ -13469,6 +13592,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   let result;
 
   try {
+    if (name === WHOAMI_TOOL.name) {
+      return { content: [{ type: "text", text: JSON.stringify(await whoami(), null, 2) }] };
+    }
+    if (READONLY && !isReadTool(name)) {
+      throw new Error(`Read-only režim (SHOPTET_READONLY=1): nástroj ${name} není čtecí / tool is not read-only`);
+    }
+    const v = await verifyEshop();
+    if (v && !v.ok) throw new Error(mismatchMessage(v.info));
+
     switch (name) {
     case "list_eshop": {
       const url = `${BASE_URL}/api/eshop`;
