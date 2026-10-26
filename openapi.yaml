@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Shoptet API
-  version: 67b1a63
+  version: d1975ee
   description: >-
     Created in cooperation with the Ministry of Industry and Trade of the Czech
 
@@ -1216,6 +1216,12 @@ info:
 
     eshop:projectDomain | Domain of eshop was changed | ID of eshop | no
 
+    eshop:language | Foreign languages of eshop were changed (language added,
+    removed, its settings, visibility, order or the default language changed).
+    Not covered by `eshop:settingsInformation`, as languages are not part of
+    `data.settings` | ID of eshop | yes (subset of GET eshop detail, see
+    `eshopLanguageWebhookPayload` in **Webhook payloads**)
+
     invoice:create | Invoice creation event  | Number (`code`) of invoice | yes
 
     invoice:delete | Invoice deleting event    | Number (`code`) of invoice | no
@@ -2028,7 +2034,7 @@ info:
     `RateLimitExceededException`. You can handle this exception by retrying the
     request after the suggested `Retry-After` date. For more information, see
     the [Rate
-    Limiting](https://api.docs.shoptet.com/openapi/section/basic-principles/rate-limiting)
+    Limiting](https://api.docs.shoptet.com/shoptet-api/openapi/section/basic-principles/rate-limiting)
     section in the API documentation.
 
     ```php
@@ -2407,6 +2413,12 @@ tags:
       `quantityDiscount`, `sectionArticle`) are fetched without any `include`
       parameters.
 
+      Some events carry a payload that is only a documented subset of an
+      endpoint response rather than the whole of it. For example
+      `eshop:language` sends only `data.languages` of the e-shop detail
+      (`GET /api/eshop`), not the whole e-shop information. The exact shape of
+      each such payload is described in the **Webhook payloads** schemas.
+
       If the payload cannot be fetched at delivery time (e.g. due to a
       transient error), the notification is still sent without the `payload`
       field. Set `sendPayload: null` to disable payload delivery.
@@ -2447,6 +2459,8 @@ tags:
     description: Schemas related to batch actions.
   - name: Snapshot
     description: Schemas related to snapshot actions.
+  - name: Webhook payloads
+    description: Schemas of webhook payloads that are a subset of an endpoint response.
 paths:
   /api/eshop:
     get:
@@ -21017,6 +21031,8 @@ paths:
                           required:
                             - code
                             - guid
+                            - internalOrderNumber
+                            - marketplaceExternalOrderId
                             - creationTime
                             - changeTime
                             - fullName
@@ -21047,6 +21063,27 @@ paths:
                                 `null` for old orders)
                               examples:
                                 - c5012051-d7ca-11e0-9a5c-feab5ed617ed
+                            internalOrderNumber:
+                              type:
+                                - string
+                                - 'null'
+                              description: >-
+                                Custom identifier for this order used for
+                                internal accounting or matching, distinct from
+                                `externalCode`, which identifies the order in an
+                                external system.
+                              examples:
+                                - INT-2026-042
+                            marketplaceExternalOrderId:
+                              type:
+                                - string
+                                - 'null'
+                              description: >-
+                                Identifier of the order in the marketplace it
+                                originated from, distinct from `externalCode`.
+                                Can be null.
+                              examples:
+                                - ALG-9988776
                             creationTime:
                               $ref: '#/components/schemas/typeDateTimeNullable'
                               description: >-
@@ -23023,6 +23060,18 @@ paths:
                         default value.
                       examples:
                         - 2018-01-21T14:15:47+0100
+                    internalOrderNumber:
+                      type:
+                        - string
+                        - 'null'
+                      minLength: 1
+                      maxLength: 255
+                      description: >-
+                        Custom identifier for this order used for internal
+                        accounting or matching, distinct from `externalCode`,
+                        which identifies the order in an external system.
+                      examples:
+                        - INT-2026-042
                     email:
                       type:
                         - string
@@ -27876,8 +27925,7 @@ paths:
         This endpoint has several sections, which are only sent when requested
         in the `include` parameter (see
 
-        [Requested
-        sections](#section/basic-principles-of-working-with-api/Section-on-demand)).
+        [Requested sections](#section/basic-principles/section-on-demand)).
 
 
         Value | Section
@@ -39300,6 +39348,7 @@ paths:
                             - priority
                             - wholesale
                             - logoUrl
+                            - salesChannelGuids
                           properties:
                             guid:
                               $ref: '#/components/schemas/typeGuid'
@@ -39356,7 +39405,14 @@ paths:
                                   http://www.ppl.cz/main2.aspx?cls=Package&idSearch=#PACKAGE_NUMBER#
                             visible:
                               type: boolean
-                              description: Is the shipping method visible?
+                              description: >-
+                                Is the shipping method visible? Relative to the
+                                requested sales channel — or, when none is
+                                given, any of the project's delivery-linkable
+                                channels. A channel that is not
+                                delivery-linkable (e.g. in-store, marketplace)
+                                always yields false, even when passed
+                                explicitly.
                               examples:
                                 - true
                             priority:
@@ -39380,6 +39436,14 @@ paths:
                               description: URL of the shipping company logo
                               examples:
                                 - https://www.example.com/logo.png
+                            salesChannelGuids:
+                              type: array
+                              description: >-
+                                GUIDs of the sales channels the shipping method
+                                is offered in — symmetric with
+                                `salesChannelGuids` on the POST request.
+                              items:
+                                $ref: '#/components/schemas/typeGuid'
                       wholesaleActive:
                         type: boolean
                         description: >-
@@ -39519,6 +39583,7 @@ paths:
                       - priority
                       - wholesale
                       - logoUrl
+                      - salesChannelGuids
                       - priceList
                     properties:
                       guid:
@@ -39577,7 +39642,13 @@ paths:
                             http://www.ppl.cz/main2.aspx?cls=Package&idSearch=#PACKAGE_NUMBER#
                       visible:
                         type: boolean
-                        description: Is the shipping method visible?
+                        description: >-
+                          Is the shipping method visible? Relative to the
+                          requested sales channel — or, when none is given, any
+                          of the project's delivery-linkable channels. A channel
+                          that is not delivery-linkable (e.g. in-store,
+                          marketplace) always yields false, even when passed
+                          explicitly.
                         examples:
                           - true
                       visibility:
@@ -39609,6 +39680,14 @@ paths:
                         description: URL of the shipping company logo
                         examples:
                           - https://www.example.com/logo.png
+                      salesChannelGuids:
+                        type: array
+                        description: >-
+                          GUIDs of the sales channels the shipping method is
+                          offered in — symmetric with `salesChannelGuids` on the
+                          POST request.
+                        items:
+                          $ref: '#/components/schemas/typeGuid'
                       priceList:
                         type: object
                         description: >-
@@ -40067,9 +40146,8 @@ paths:
                       type: array
                       description: >-
                         GUIDs of the sales channels the shipping method is
-                        offered in. Requires the active `Sales channel` module.
-                        When omitted, a visible method is bound to the primary
-                        market's sales channel.
+                        offered in. When omitted, a visible method is bound to
+                        the primary market's sales channel.
                       items:
                         $ref: '#/components/schemas/typeGuid'
                     logo:
@@ -40236,6 +40314,7 @@ paths:
                       - priority
                       - wholesale
                       - logoUrl
+                      - salesChannelGuids
                     properties:
                       guid:
                         $ref: '#/components/schemas/typeGuid'
@@ -40290,7 +40369,13 @@ paths:
                             http://www.ppl.cz/main2.aspx?cls=Package&idSearch=#PACKAGE_NUMBER#
                       visible:
                         type: boolean
-                        description: Is the shipping method visible?
+                        description: >-
+                          Is the shipping method visible? Relative to the
+                          requested sales channel — or, when none is given, any
+                          of the project's delivery-linkable channels. A channel
+                          that is not delivery-linkable (e.g. in-store,
+                          marketplace) always yields false, even when passed
+                          explicitly.
                         examples:
                           - true
                       priority:
@@ -40314,6 +40399,14 @@ paths:
                         description: URL of the shipping company logo
                         examples:
                           - https://www.example.com/logo.png
+                      salesChannelGuids:
+                        type: array
+                        description: >-
+                          GUIDs of the sales channels the shipping method is
+                          offered in — symmetric with `salesChannelGuids` on the
+                          POST request.
+                        items:
+                          $ref: '#/components/schemas/typeGuid'
                       priceList:
                         type: object
                         description: >-
@@ -40458,6 +40551,38 @@ paths:
           description: Not Found
           content:
             application/json:
+              examples:
+                Shipping method not found:
+                  value:
+                    data: null
+                    errors:
+                      - errorCode: shipping-method-not-found
+                        message: >-
+                          Shipping method with GUID
+                          "b57f91bb-e920-11e0-baa3-7dc668b75ca8" not found.
+                        instance: b57f91bb-e920-11e0-baa3-7dc668b75ca8
+                Sales channel not found:
+                  value:
+                    data: null
+                    errors:
+                      - errorCode: sales-channel-not-found
+                        message: >-
+                          Sales channel with GUID
+                          "0199bdfd-0979-71fb-85ce-e483c61d391b" not found.
+                        instance: salesChannelGuid
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
               schema:
                 type: object
                 properties:
@@ -40470,11 +40595,9 @@ paths:
               example:
                 data: null
                 errors:
-                  - errorCode: shipping-method-not-found
-                    message: >-
-                      Shipping method with GUID
-                      "b57f91bb-e920-11e0-baa3-7dc668b75ca8" not found.
-                    instance: b57f91bb-e920-11e0-baa3-7dc668b75ca8
+                  - errorCode: sales-channel-guid-invalid
+                    message: Sales channel GUID "invalid" is not valid.
+                    instance: salesChannelGuid
       summary: Shipping method detail
       operationId: getShippingMethodDetail
       description: >-
@@ -40488,19 +40611,20 @@ paths:
         paired payment methods) are returned only when requested via the
         `include=priceList` query
 
-        parameter.
+        parameter. Pricing is defined per method, not per channel, so the
+        returned pricelist is the
+
+        same regardless of `salesChannelGuid`.
 
 
-        Unlike the list endpoint (`/api/shipping-methods`, which can be filtered
-        by `salesChannelGuid`),
+        The `visible` field, like on the list endpoint
+        (`/api/shipping-methods`), reflects sales-channel
 
-        this detail endpoint is channel-agnostic: it returns the method by GUID
-        regardless of sales
+        membership. When `salesChannelGuid` is omitted, `visible` is `true` if
+        the method is attached to
 
-        channel. Pricing is defined per method, not per channel, so the returned
-        pricelist is the same
-
-        across channels.
+        any of the project's sales channels; pass `salesChannelGuid` to scope it
+        to one specific channel.
       tags:
         - Shipping methods
       parameters:
@@ -40521,6 +40645,14 @@ paths:
             type: string
             enum:
               - priceList
+        - name: salesChannelGuid
+          in: query
+          description: >-
+            Sales channel GUID. Optional parameter; if not provided, `visible`
+            reflects membership in any of the project's sales channels.
+          example: 0199bdfd-0979-71fb-85ce-e483c61d391b
+          schema:
+            type: string
         - $ref: '#/components/parameters/DefaultContentType'
     patch:
       responses:
@@ -40544,6 +40676,7 @@ paths:
                       - priority
                       - wholesale
                       - logoUrl
+                      - salesChannelGuids
                     properties:
                       guid:
                         $ref: '#/components/schemas/typeGuid'
@@ -40598,7 +40731,13 @@ paths:
                             http://www.ppl.cz/main2.aspx?cls=Package&idSearch=#PACKAGE_NUMBER#
                       visible:
                         type: boolean
-                        description: Is the shipping method visible?
+                        description: >-
+                          Is the shipping method visible? Relative to the
+                          requested sales channel — or, when none is given, any
+                          of the project's delivery-linkable channels. A channel
+                          that is not delivery-linkable (e.g. in-store,
+                          marketplace) always yields false, even when passed
+                          explicitly.
                         examples:
                           - true
                       priority:
@@ -40622,6 +40761,14 @@ paths:
                         description: URL of the shipping company logo
                         examples:
                           - https://www.example.com/logo.png
+                      salesChannelGuids:
+                        type: array
+                        description: >-
+                          GUIDs of the sales channels the shipping method is
+                          offered in — symmetric with `salesChannelGuids` on the
+                          POST request.
+                        items:
+                          $ref: '#/components/schemas/typeGuid'
                       priceList:
                         type: object
                         description: >-
@@ -41043,9 +41190,8 @@ paths:
                       type: array
                       description: >-
                         GUIDs of the sales channels the shipping method is
-                        offered in. Requires the active `Sales channel` module.
-                        Replaces the current bindings; an empty array detaches
-                        the method from every sales channel.
+                        offered in. Replaces the current bindings; an empty
+                        array detaches the method from every sales channel.
                       items:
                         $ref: '#/components/schemas/typeGuid'
                     priceList:
@@ -41931,6 +42077,7 @@ paths:
                             - paymentType
                             - visible
                             - wholesale
+                            - inPersonPayment
                             - logoUrl
                           properties:
                             guid:
@@ -42002,6 +42149,14 @@ paths:
                               description: Is the payment method available for wholesale?
                               examples:
                                 - true
+                            inPersonPayment:
+                              type: boolean
+                              description: >-
+                                Is the payment settled in person (cash,
+                                terminal, QR at the counter)? Used for fiscal
+                                reporting
+                              examples:
+                                - false
                             logoUrl:
                               type:
                                 - string
@@ -42154,6 +42309,7 @@ paths:
                       - description
                       - visibility
                       - wholesale
+                      - inPersonPayment
                       - logoUrl
                       - paymentType
                     additionalProperties: false
@@ -42190,6 +42346,13 @@ paths:
                         description: Is the payment method available for wholesale?
                         examples:
                           - true
+                      inPersonPayment:
+                        type: boolean
+                        description: >-
+                          Is the payment settled in person (cash, terminal, QR
+                          at the counter)? Used for fiscal reporting
+                        examples:
+                          - false
                       logoUrl:
                         type:
                           - string
@@ -42236,35 +42399,54 @@ paths:
                 additionalProperties: false
       summary: Adding the payment methods
       operationId: createPaymentMethod
-      description: |-
+      description: >-
         Adds the new payment method for the specific e-shop.
 
 
+
         **If you are a Premium client, contact your Account or Onboarding
+
         manager and request the creation of a new gateway identifier. New
+
         payment gateway has to be approved by Shoptet and client needs to be
+
         familiar with the terms of payment in advance.**
 
 
+
         The request body includes the mandatory attributes `name` and
+
         `paymentType`. The other parameters are not mandatory and their default
+
         values will be used:
+
 
 
         - `description` - `null`
 
 
+
         - `visibility` - `false`
+
 
 
         - `wholesale` - `false`
 
 
+
+        - `inPersonPayment` - `false` (set `true` for methods settled in person,
+        e.g. cash or a terminal at the counter; used for fiscal reporting)
+
+
+
         - `logo` - `null`
 
 
+
         Send the logo of the payment gateway as the file content, encoded with
+
         base64, in `data.logo.content` request item.
+
 
 
         **Please note that `name` cannot be longer than 255 characters.**
@@ -42328,6 +42510,13 @@ paths:
                         wholesale customers (`true` = for retail)
                       examples:
                         - true
+                    inPersonPayment:
+                      type: boolean
+                      description: >-
+                        whether the payment is settled in person (cash,
+                        terminal, QR at the counter), used for fiscal reporting
+                      examples:
+                        - false
                     logo:
                       type: object
                       required:
@@ -60914,6 +61103,8 @@ components:
         - code
         - guid
         - externalCode
+        - internalOrderNumber
+        - marketplaceExternalOrderId
         - creationTime
         - changeTime
         - email
@@ -60953,9 +61144,32 @@ components:
           type:
             - string
             - 'null'
-          description: Identification of the order in external system (or `null`).
+          description: >-
+            Identification of the order in external system (or `null`). Distinct
+            from `internalOrderNumber` (the merchant's own custom identifier)
+            and `marketplaceExternalOrderId` (the order's identifier in a
+            marketplace).
           examples:
             - '1234'
+        internalOrderNumber:
+          type:
+            - string
+            - 'null'
+          description: >-
+            Custom identifier for this order used for internal accounting or
+            matching, distinct from `externalCode`, which identifies the order
+            in an external system.
+          examples:
+            - INT-2026-042
+        marketplaceExternalOrderId:
+          type:
+            - string
+            - 'null'
+          description: >-
+            Identifier of the order in the marketplace it originated from,
+            distinct from `externalCode`. Can be null.
+          examples:
+            - ALG-9988776
         creationTime:
           $ref: '#/components/schemas/typeDateTimeNullable'
           description: date and time, when the order was created. ISO 8601 format.
@@ -61538,7 +61752,9 @@ components:
           maxLength: 255
           description: >-
             order identification within the external system (mandatory, must be
-            unique).
+            unique). Distinct from `internalOrderNumber` (the merchant's own
+            custom identifier) and `marketplaceExternalOrderId` (the order's
+            identifier in a marketplace).
           examples:
             - X123
         cashDeskOrder:
@@ -61610,6 +61826,18 @@ components:
             settings).
           examples:
             - '1990-01-01'
+        internalOrderNumber:
+          type:
+            - string
+            - 'null'
+          minLength: 1
+          maxLength: 255
+          description: >-
+            Custom identifier for this order used for internal accounting or
+            matching, distinct from `externalCode`, which identifies the order
+            in an external system.
+          examples:
+            - INT-2026-042
         vatPayer:
           type: boolean
           examples:
@@ -62651,6 +62879,7 @@ components:
         - code
         - isValid
         - orderCode
+        - internalOrderNumber
         - creationTime
         - changeTime
         - billingAddress
@@ -62679,6 +62908,16 @@ components:
             number, it can also contain letters, a dash, etc.
           examples:
             - '2017000090'
+        internalOrderNumber:
+          type:
+            - string
+            - 'null'
+          description: >-
+            Custom identifier for this order used for internal accounting or
+            matching, distinct from `externalCode`, which identifies the order
+            in an external system.
+          examples:
+            - INT-2026-042
         creationTime:
           $ref: '#/components/schemas/typeDateTimeNullable'
           description: date of issue, in ISO 8601 format
@@ -62881,6 +63120,7 @@ components:
         - isValid
         - paid
         - orderCode
+        - internalOrderNumber
         - creationTime
         - changeTime
         - dueDate
@@ -62928,6 +63168,16 @@ components:
             to be just a number, it can also contain letters, a dash, etc.
           examples:
             - '2017000017'
+        internalOrderNumber:
+          type:
+            - string
+            - 'null'
+          description: >-
+            Custom identifier for this order used for internal accounting or
+            matching, distinct from `externalCode`, which identifies the order
+            in an external system.
+          examples:
+            - INT-2026-042
         creationTime:
           $ref: '#/components/schemas/typeDateTimeNullable'
           description: date of issue, in ISO 8601 format
@@ -63007,6 +63257,7 @@ components:
         - isValid
         - proformaInvoiceCodes
         - orderCode
+        - internalOrderNumber
         - creationTime
         - changeTime
         - dueDate
@@ -63051,6 +63302,16 @@ components:
             number, it can also contain letters, a dash, etc.
           examples:
             - '2017000017'
+        internalOrderNumber:
+          type:
+            - string
+            - 'null'
+          description: >-
+            Custom identifier for this order used for internal accounting or
+            matching, distinct from `externalCode`, which identifies the order
+            in an external system.
+          examples:
+            - INT-2026-042
         creationTime:
           $ref: '#/components/schemas/typeDateTimeNullable'
           description: date of issue, in ISO 8601 format
@@ -63175,6 +63436,71 @@ components:
           description: definition of discounts.
         prices:
           $ref: '#/components/schemas/productPrices'
+    eshopLanguageWebhookPayload:
+      title: eshop:language
+      x-tags:
+        - Webhook payloads
+      description: >-
+        Payload of the `eshop:language` webhook. A subset of the `GET
+        /api/eshop` response: only `data.languages`, in the same shape and with
+        the same rules (empty when the Foreign languages module is not active
+        and initialized).
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required:
+            - languages
+          properties:
+            languages:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    description: language code
+                    examples:
+                      - cs
+                  currencyCode:
+                    type:
+                      - string
+                      - 'null'
+                    description: default currency of language
+                    examples:
+                      - CZK
+                  dateFormat:
+                    type: string
+                    description: date format for this language
+                    examples:
+                      - j.n.Y
+                  timeFormat:
+                    type: string
+                    description: time format for this language
+                    examples:
+                      - H:i
+                  isVisible:
+                    type: boolean
+                    description: whether language is selectable in e-shop
+                    examples:
+                      - true
+                  isDefault:
+                    type: boolean
+                    description: whether language is default
+                    examples:
+                      - true
+                  priority:
+                    type:
+                      - integer
+                      - 'null'
+                    description: ordering property
+                    examples:
+                      - 1
     abandonedCartSnapshot:
       title: Abandoned cart
       x-tags:
@@ -63724,3 +64050,6 @@ x-tagGroups:
     tags:
       - Batch
       - Snapshot
+  - name: Webhook schemas
+    tags:
+      - Webhook payloads
