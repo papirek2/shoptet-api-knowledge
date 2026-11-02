@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Shoptet API
-  version: d1975ee
+  version: fe72dbb
   description: >-
     Created in cooperation with the Ministry of Industry and Trade of the Czech
 
@@ -1262,6 +1262,10 @@ info:
 
     pricelist:create | Pricelist creation event | ID of pricelist | no
 
+    pricelist:update | Pricelist change event. Emitted when the pricelist name,
+    currency or sales channel assignment changes, not when its prices change |
+    ID of pricelist | no
+
     pricelist:delete | Pricelist deleting event | ID of pricelist | no
 
     paymentMethod:change | Payment method change event | Payment method GUID |
@@ -1575,6 +1579,8 @@ info:
     Mini One Stop Shop |
 
     Reverse charge |
+
+    Triangular transaction |
 
     Outside the EU |
 
@@ -4288,9 +4294,12 @@ paths:
                         type:
                           - object
                         required:
+                          - useSequentionalNumberSerie
                           - codePrefix
                           - codeLength
                           - numberSeriesStartFrom
+                          - codePrefixInvoice
+                          - codePrefixProofPayment
                           - displayCorrectedAndOriginalDocumentDiff
                           - printItemRemark
                           - defaultReasonRemark
@@ -4299,20 +4308,34 @@ paths:
                           - forbiddenItemTypes
                         description: Available only if module `invoicing` is active.
                         properties:
+                          useSequentionalNumberSerie:
+                            type: boolean
+                            description: >-
+                              If `true`, sequentional number serie is used,
+                              configured by `codePrefix`, `codeLength`, and
+                              `numberSeriesStartFrom`. Otherwise credit note
+                              `code` is derived from the linked document with
+                              prefix `codePrefixInvoice`, or
+                              `codePrefixProofPayment`. All of these fields are
+                              returned in both modes.
+                            examples:
+                              - true
                           codePrefix:
                             type:
                               - string
                               - 'null'
                             description: >-
                               Prefix of credit note `code`. Typically the
-                              current year is used as a prefix.
+                              current year is used as a prefix. Used only if
+                              `useSequentionalNumberSerie` is `true`.
                             examples:
                               - '2025'
                           codeLength:
                             type: integer
                             description: >-
                               Total length of credit note `code`, including
-                              prefix.
+                              prefix. Used only if `useSequentionalNumberSerie`
+                              is `true`.
                             examples:
                               - 10
                           numberSeriesStartFrom:
@@ -4321,18 +4344,45 @@ paths:
                               E.g., if `codePrefix` is set to `2025`,
                               `codeLength` is `10`, and `numberSeriesStartFrom`
                               is `1`, first credit note `code` will look like
-                              `2025000001`.
+                              `2025000001`. Used only if
+                              `useSequentionalNumberSerie` is `true`.
                             examples:
                               - 1
+                          codePrefixInvoice:
+                            type:
+                              - string
+                              - 'null'
+                            description: >-
+                              Prefix of credit note `code` if created from
+                              invoice. Used only if `useSequentionalNumberSerie`
+                              is `false`, i.e. `code` is derived from the linked
+                              document.
+                            examples:
+                              - F-
+                          codePrefixProofPayment:
+                            type:
+                              - string
+                              - 'null'
+                            description: >-
+                              Prefix of credit note `code` if created from proof
+                              of payment. Used only if
+                              `useSequentionalNumberSerie` is `false`, i.e.
+                              `code` is derived from the linked document.
+                            examples:
+                              - DP-
                           unifyCodeWithOrder:
                             type: boolean
+                            deprecated: true
                             description: >-
-                              Credit note will have the identical number as the
-                              order. VS will be the same in the order and
-                              invoice. Available only if module `nav` is not
-                              active.
+                              Deprecated, use `useSequentionalNumberSerie`
+                              instead. It no longer means that the credit note
+                              `code` equals the order code: `true` if credit
+                              note `code` is derived from the linked document as
+                              `<prefix><document code>-NN`
+                              (`useSequentionalNumberSerie` is `false`).
+                              Available only if module `nav` is not active.
                             examples:
-                              - true
+                              - false
                           displayCorrectedAndOriginalDocumentDiff:
                             type: boolean
                             description: >-
@@ -19724,6 +19774,7 @@ paths:
                           required:
                             - id
                             - guid
+                            - parentGuid
                             - name
                             - type
                             - abilities
@@ -19740,6 +19791,13 @@ paths:
                             guid:
                               $ref: '#/components/schemas/typeGuid'
                               description: Sales channel GUID.
+                            parentGuid:
+                              $ref: '#/components/schemas/typeGuidNullable'
+                              description: >-
+                                GUID of the parent sales channel. `null` for
+                                root channels. Set for example for cash desks
+                                (child `in_store` channels) and points to their
+                                store.
                             name:
                               type: string
                               description: Sales channel name.
@@ -31474,7 +31532,7 @@ paths:
                     creditNoteCode:
                       type: string
                       minLength: 1
-                      maxLength: 10
+                      maxLength: 255
                       description: >-
                         Credit note code. Optional, generated by eshop settings
                         if not set.
@@ -31696,7 +31754,7 @@ paths:
                     creditNoteCode:
                       type: string
                       minLength: 1
-                      maxLength: 10
+                      maxLength: 255
                       description: >-
                         Credit note code. Optional, generated by eshop settings
                         if not set.
@@ -33067,6 +33125,7 @@ paths:
                         required:
                           - id
                           - guid
+                          - parentGuid
                           - name
                           - type
                           - abilities
@@ -33083,6 +33142,12 @@ paths:
                           guid:
                             $ref: '#/components/schemas/typeGuid'
                             description: Sales channel GUID.
+                          parentGuid:
+                            $ref: '#/components/schemas/typeGuidNullable'
+                            description: >-
+                              GUID of the parent sales channel. `null` for root
+                              channels. Set for example for cash desks (child
+                              `in_store` channels) and points to their store.
                           name:
                             type: string
                             description: Sales channel name.
@@ -33239,7 +33304,9 @@ paths:
                             $ref: '#/components/schemas/inStoreContact'
                             description: In store contact information.
                           categoryId:
-                            type: integer
+                            type:
+                              - integer
+                              - 'null'
                             description: Project category identifier.
                             examples:
                               - 2
@@ -33320,6 +33387,7 @@ paths:
                         required:
                           - id
                           - guid
+                          - parentGuid
                           - name
                           - type
                           - abilities
@@ -33336,6 +33404,12 @@ paths:
                           guid:
                             $ref: '#/components/schemas/typeGuid'
                             description: Sales channel GUID.
+                          parentGuid:
+                            $ref: '#/components/schemas/typeGuidNullable'
+                            description: >-
+                              GUID of the parent sales channel. `null` for root
+                              channels. Set for example for cash desks (child
+                              `in_store` channels) and points to their store.
                           name:
                             type: string
                             description: Sales channel name.
@@ -33492,7 +33566,9 @@ paths:
                             $ref: '#/components/schemas/inStoreContact'
                             description: In store contact information.
                           categoryId:
-                            type: integer
+                            type:
+                              - integer
+                              - 'null'
                             description: Project category identifier.
                             examples:
                               - 2
@@ -60734,7 +60810,7 @@ components:
           type:
             - integer
             - 'null'
-          description: package identifier, can be `null`
+          description: identifier of the order package, can be `null`
           examples:
             - 468
         labelUrl:
@@ -60810,7 +60886,7 @@ components:
           type:
             - integer
             - 'null'
-          description: package identifier, can be `null`
+          description: identifier of the order package, can be `null`
           examples:
             - 468
         labelUrl:
@@ -62291,9 +62367,9 @@ components:
           type: string
           description: >-
             VAT mode, `Normal` is used by default, possible values: `Normal`,
-            `One Stop Shop`*, `Reverse charge`, `Outside the EU`. Please note,
-            that `One Stop Shop` value requires eshop `OSS` setting to be
-            `true`.
+            `One Stop Shop`*, `Reverse charge`, `Triangular transaction`,
+            `Outside the EU`. Please note, that `One Stop Shop` value requires
+            eshop `OSS` setting to be `true`.
           examples:
             - Normal
         items:
@@ -63102,7 +63178,8 @@ components:
             - 'null'
           description: >-
             VAT mode, can be null, possible values: `Normal`, `One Stop Shop`,
-            `Mini One Stop Shop`, `Reverse charge`, `Outside the EU`
+            `Mini One Stop Shop`, `Reverse charge`, `Triangular transaction`,
+            `Outside the EU`
           examples:
             - Normal
         reasonRemark:
@@ -63381,7 +63458,8 @@ components:
             - 'null'
           description: >-
             VAT mode, can be null, possible values: `Normal`, `One Stop Shop`,
-            `Mini One Stop Shop`, `Reverse charge`, `Outside the EU`
+            `Mini One Stop Shop`, `Reverse charge`, `Triangular transaction`,
+            `Outside the EU`
           examples:
             - Normal
         proofPayments:
