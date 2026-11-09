@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Shoptet API
-  version: fe72dbb
+  version: a17a2c6
   description: >-
     Created in cooperation with the Ministry of Industry and Trade of the Czech
 
@@ -58,6 +58,14 @@ info:
 
     and authorization principles.
 
+
+
+    ### Date and time in query parameters
+
+    Date-time values in query parameters (e.g.
+    `creationTimeFrom=2019-09-05T00:00:00+02:00`) use the ISO 8601 format. The
+    `+` sign of the time zone offset has to be URL-encoded as `%2B`, otherwise
+    it is received as a space and the value is rejected.
 
 
     ### For Addons
@@ -1115,6 +1123,9 @@ info:
 
     ## Webhook event types
 
+    No `*:delete` event supports a payload: the entity no longer exists when the
+    notification is built, so there is nothing to fetch.
+
 
     Value  | Description | Identifier meaning | Payload supported
 
@@ -1214,7 +1225,9 @@ info:
     eshop:mandatoryFields | Mandatory fields of customer were updated | ID of
     eshop | no
 
-    eshop:projectDomain | Domain of eshop was changed | ID of eshop | no
+    eshop:projectDomain | Domain of eshop was changed. **DEPRECATED!**
+    Management moved under Sales channels. Use `salesChannel:*` webhooks instead
+    | ID of eshop | no
 
     eshop:language | Foreign languages of eshop were changed (language added,
     removed, its settings, visibility, order or the default language changed).
@@ -1260,11 +1273,11 @@ info:
     orderStatusesList:change | Order status list change event. Emitted when
     order status is created, updated or deleted | Order status `ID` | no
 
-    pricelist:create | Pricelist creation event | ID of pricelist | no
+    pricelist:create | Pricelist creation event | ID of pricelist | yes
 
     pricelist:update | Pricelist change event. Emitted when the pricelist name,
     currency or sales channel assignment changes, not when its prices change |
-    ID of pricelist | no
+    ID of pricelist | yes
 
     pricelist:delete | Pricelist deleting event | ID of pricelist | no
 
@@ -1327,9 +1340,12 @@ info:
     salesChannel:create | Sales channel create event | GUID of sales channel |
     no
 
-    salesChannel:update | Sales channel update event | GUID of Shipment | no
+    salesChannel:update | Sales channel update event, including a connected,
+    changed or disconnected custom domain of an online store | GUID of sales
+    channel | no
 
-    salesChannel:delete | Sales channel delete event | GUID of Shipment | no
+    salesChannel:delete | Sales channel delete event | GUID of sales channel |
+    no
 
     shipment:create | Shipment confirmation event. Carrier confirmed the
     shipment (tracking number assigned, label ready) | GUID of Shipment | no
@@ -2205,6 +2221,24 @@ tags:
       The code (`code`) is the credit notes identifier. Although this is usually
       a number, it is necessary to take into account that this might also
       include letters, a dash, etc.
+  - name: EET
+    description: |-
+      Receipts sent to the EET evidence (sales registration) and their delivery
+      state. Requires the active `eetV2` module in the e-shop.
+
+      A record in state `pending` or `sending` is still waiting for the tax
+      administration's answer; `registered`, `rejected` and `failed` are final
+      unless the record is sent again. `lastError` explains a rejection or a
+      failure, `deadlineMissedAt` is set when the legal sending deadline was
+      missed.
+
+      Records sent to the `playground` environment are tests: they are never
+      legally valid, even when confirmed. Use `isLegallyValid` to tell a
+      legally registered receipt apart.
+
+      Amounts in `price` are always in CZK, as price strings with two decimals.
+      A sale in another currency also carries `sourceCurrency` with the original
+      amount and the exchange rate used.
   - name: Proof payments
     description: |-
       The code (`code`) is the proof payments identifier. Although this is
@@ -4679,6 +4713,10 @@ paths:
                               - true
                           sortItems:
                             type: string
+                            enum:
+                              - byProductName
+                              - byProductCode
+                              - byStockLocation
                             description: >-
                               Determines how items are sorted in documents,
                               printout, and inventory. Available only if module
@@ -6773,7 +6811,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/productSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/productSnapshot'
   /api/products/snapshot/pricelists:
     get:
       responses:
@@ -6874,7 +6912,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/productPricelistSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/productPricelistSnapshot'
   /api/products/{guid}:
     get:
       responses:
@@ -7950,9 +7988,27 @@ paths:
       parameters:
         - name: clearImages
           in: query
-          description: >-
-            Remove all original images in products gallery before processing new
-            ones
+          description: >
+            Synchronize the product gallery with the item instead of appending
+            to it. Images of the gallery that are not
+
+            listed in the item are removed. An image already stored under the
+            same `sourceUrl` keeps its id; it is
+
+            downloaded again and its file is replaced only when the content
+            changed or when the stored file is missing
+
+            or empty. A failed download keeps the stored image and is reported
+            as an item error. New images are added. When not a single listed
+            image could be stored
+
+            or matched to a stored one, nothing is removed, so a failing source
+            cannot empty the gallery. Without this
+
+            parameter nothing is removed and a `sourceUrl` that is already
+            stored in the gallery is rejected as already
+
+            uploaded.
           example: true
           schema:
             type: boolean
@@ -9895,6 +9951,20 @@ paths:
           schema:
             type: integer
         - $ref: '#/components/parameters/DefaultPageParameter'
+        - name: language
+          in: query
+          description: >-
+            Language of the translatable fields in the response (e.g. `cs`). If
+            not provided,
+
+            the default language of the e-shop is used. Requires the "Foreign
+            Languages" module;
+
+            without it the request fails with the `missing-module` error.
+          required: false
+          example: cs
+          schema:
+            type: string
         - $ref: '#/components/parameters/DefaultContentType'
     post:
       responses:
@@ -10092,7 +10162,8 @@ paths:
                       description: >-
                         defines users of the e-shop who can see the category -
                         `all` = all (default), `registered` = registered users,
-                        `unregistered` = non-registered users. Optional.
+                        `unregistered` = non-registered users, `admin-only` =
+                        administrators. Optional.
                       examples:
                         - all
                     productOrdering:
@@ -10239,6 +10310,18 @@ paths:
           example: bffa3b98-d968-11e0-b04f-57a43310b728
           schema:
             type: string
+        - name: suppressRedirect
+          in: query
+          description: >-
+            When `indexName` changes, a redirect from the old category URL to
+            the
+
+            new one is created. Set to `true` to suppress creating the redirect.
+          required: false
+          example: true
+          schema:
+            type: boolean
+            default: false
         - $ref: '#/components/parameters/DefaultContentType'
       requestBody:
         content:
@@ -10328,22 +10411,60 @@ paths:
                     instance: 5c499200-70ac-11e9-9208-08002774f818
                 metadata:
                   requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+        '423':
+          description: Locked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: concurrent-categories-update
+                    message: Concurrent categories update. Please try later.
+                    instance: 5c499200-70ac-11e9-9208-08002774f818
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
       summary: Product category deletion
       operationId: deleteProductCategory
-      description: |-
+      description: >-
         Deletes product category as per entered `categoryGuid`. If successful,
+
         returns the code 200.
 
+
         If the category does not exist within the e-shop, a 404 code is
+
         returned.
 
+
         If the category cannot be deleted, because it is used by some product or
+
         has children, a 409 code is returned.
 
+
+        If the category tree is being changed by another process at the same
+        time
+
+        (e.g. a running import), a 423 code is returned. Retry later.
+
+
         Optional parameter `deleteUsed` allows deleting categories used by
+
         products. The products are marked as changed.
 
+
         Optional parameter `deleteChildren` allows deleting categories with
+
         child categories. The children are deleted too.
       tags:
         - Categories
@@ -10632,10 +10753,10 @@ paths:
                 errors:
                   - errorCode: batch-job-already-running
                     message: Concurrent job already running!
-                    instance: categories-batch-update
+                    instance: categories-products-priorities-batch-update
                   - errorCode: another-import-is-running
                     message: Another import is running. Please try again later.
-                    instance: categories-batch-update
+                    instance: categories-products-priorities-batch-update
                 metadata:
                   requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
         '422':
@@ -18168,7 +18289,7 @@ paths:
             type: number
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/pricelistSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/pricelistSnapshot'
   /api/pricelists/{id}/batch:
     patch:
       responses:
@@ -19642,7 +19763,7 @@ paths:
             type: number
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/priceListPriceSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/priceListPriceSnapshot'
   /api/price-lists/prices/snapshot:
     get:
       responses:
@@ -19750,7 +19871,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/productPriceListPriceSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/productPriceListPriceSnapshot'
   /api/sales-channels:
     get:
       responses:
@@ -20059,6 +20180,12 @@ paths:
                   - errorCode: shipment-validation-failed
                     message: Missing delivery country of order.
                     instance: data.orderCode
+                  - errorCode: shipment-validation-failed
+                    message: Order packaging ID "3" does not exist for the order.
+                    instance: data.packages
+                  - errorCode: shipment-validation-failed
+                    message: Packaging ID "6" does not exist.
+                    instance: data.packages
                   - errorCode: shipment-order-without-shipping
                     message: Order does not include shipping.
                     instance: payload
@@ -20067,6 +20194,9 @@ paths:
                     instance: payload
                   - errorCode: shipment-shipping-service-not-supported
                     message: The selected shipping service does not support shipments.
+                    instance: payload
+                  - errorCode: shipment-bank-account-not-exist
+                    message: Default shipper bank account does not exist.
                     instance: payload
               schema:
                 type: object
@@ -20084,6 +20214,13 @@ paths:
         - `orderPackagingId` only,
         - `packaging` and `weight`,
         - `width`, `height`, `depth`, and `weight`.
+
+        `orderPackagingId` and `packaging` are two different IDs.
+        `orderPackagingId` is the ID of a package already added to the order and
+        it must belong to the order given by `orderCode`. `packaging` is the ID
+        of a packaging template defined in the e-shop; a new package is added to
+        the order from it. An unknown ID of either kind is rejected with
+        `shipment-validation-failed` and instance `data.packages`.
       tags:
         - Delivery
       requestBody:
@@ -20164,7 +20301,13 @@ paths:
                             properties:
                               orderPackagingId:
                                 type: integer
-                                description: packaging ID; required if sent
+                                minimum: 1
+                                description: >-
+                                  ID of a package already added to the order
+                                  (order packaging); it must belong to the order
+                                  given by `orderCode`. Not the same as
+                                  `packaging`, which is the ID of a packaging
+                                  template.
                                 examples:
                                   - 3
                           - type: object
@@ -20175,7 +20318,13 @@ paths:
                             properties:
                               packaging:
                                 type: integer
-                                description: packaging ID; required if sent
+                                minimum: 1
+                                description: >-
+                                  ID of a packaging template defined in the
+                                  e-shop; a new package is added to the order
+                                  from this template. Not the same as
+                                  `orderPackagingId`, which is the ID of a
+                                  package already added to the order.
                                 examples:
                                   - 6
                               weight:
@@ -21384,7 +21533,7 @@ paths:
             format ("2017-12-12T22:08:01+0100").
           schema:
             type: string
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
         - name: creationTimeTo
           in: query
           description: |-
@@ -21392,7 +21541,7 @@ paths:
             format ("2017-12-12T22:08:01+0100").
           schema:
             type: string
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
         - name: codeFrom
           in: query
           description: Purchase order filtering, according to order code.
@@ -21440,7 +21589,7 @@ paths:
             format ("2017-12-12T22:08:01+0100").
           schema:
             type: string
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
         - name: changeTimeTo
           in: query
           description: |-
@@ -21448,7 +21597,7 @@ paths:
             format ("2017-12-12T22:08:01+0100").
           schema:
             type: string
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
         - name: sourceId
           in: query
           description: |-
@@ -22175,7 +22324,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/orderHistorySnapshot'
+      x-shoptet-response-ref: '#/components/schemas/orderHistorySnapshot'
   /api/orders/snapshot:
     get:
       responses:
@@ -22400,13 +22549,13 @@ paths:
             format ("2017-12-12T22:08:01+0100").
           schema:
             type: string
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
         - name: creationTimeTo
           in: query
           description: |-
             Purchase order filtering, according to date of creation. ISO 8601
             format ("2017-12-12T22:08:01+0100").
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: codeFrom
@@ -22456,7 +22605,7 @@ paths:
             format ("2017-12-12T22:08:01+0100").
           schema:
             type: string
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
         - name: changeTimeTo
           in: query
           description: |-
@@ -22464,7 +22613,7 @@ paths:
             format ("2017-12-12T22:08:01+0100").
           schema:
             type: string
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
         - name: sourceId
           in: query
           description: |-
@@ -22475,7 +22624,7 @@ paths:
           example: -1
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/orderSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/orderSnapshot'
   /api/orders/status-change:
     patch:
       responses:
@@ -26095,6 +26244,20 @@ paths:
       tags:
         - Orders
       parameters:
+        - name: language
+          in: query
+          description: >-
+            Language of the translatable fields in the response (e.g. `cs`). If
+            not provided,
+
+            the default language of the e-shop is used. Requires the "Foreign
+            Languages" module;
+
+            without it the request fails with the `missing-module` error.
+          required: false
+          example: cs
+          schema:
+            type: string
         - $ref: '#/components/parameters/DefaultContentType'
   /api/orders/sources:
     get:
@@ -26749,9 +26912,12 @@ paths:
                           - true
                       productGifts:
                         type: string
+                        enum:
+                          - per-amount
+                          - per-order
                         description: >-
                           set if gifts are dependent on each product or whole
-                          order, possible values are `per-amount` and `per-order
+                          order
                         examples:
                           - per-amount
                   errors:
@@ -26813,9 +26979,12 @@ paths:
                           - true
                       productGifts:
                         type: string
+                        enum:
+                          - per-amount
+                          - per-order
                         description: >-
                           set if gifts are dependent on each product or whole
-                          order, possible values are `per-amount` and `per-order
+                          order
                         examples:
                           - per-amount
                   errors:
@@ -27028,13 +27197,13 @@ paths:
         - name: changeTimeFrom
           in: query
           description: filtering invoices updated after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeTo
           in: query
           description: filtering invoices updated before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: taxDateFrom
@@ -27214,25 +27383,25 @@ paths:
         - name: creationTimeFrom
           in: query
           description: Export invoices created after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: creationTimeTo
           in: query
           description: Export invoices created before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeFrom
           in: query
           description: Export invoices updated after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeTo
           in: query
           description: Export invoices updated before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: codeFrom
@@ -27333,7 +27502,7 @@ paths:
             type: boolean
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/invoiceSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/invoiceSnapshot'
   /api/invoices/{code}:
     get:
       responses:
@@ -28613,13 +28782,13 @@ paths:
         - name: changeTimeFrom
           in: query
           description: filtering proforma invoices updated after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeTo
           in: query
           description: filtering proforma invoices updated before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: varSymbol
@@ -28796,25 +28965,25 @@ paths:
         - name: creationTimeFrom
           in: query
           description: Export proforma invoices created after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: creationTimeTo
           in: query
           description: Export proforma invoices created before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeFrom
           in: query
           description: Export proforma invoices updated after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeTo
           in: query
           description: Export proforma invoices updated before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: codeFrom
@@ -28855,7 +29024,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/proformaInvoiceSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/proformaInvoiceSnapshot'
   /api/proforma-invoices/{code}:
     get:
       responses:
@@ -29864,25 +30033,25 @@ paths:
         - name: creationTimeFrom
           in: query
           description: Export proof payments created after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: creationTimeTo
           in: query
           description: Export proof payments created before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeFrom
           in: query
           description: Export proof payments updated after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeTo
           in: query
           description: Export proof payments updated before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: taxDateFrom
@@ -29917,7 +30086,7 @@ paths:
             type: boolean
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/proofPaymentSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/proofPaymentSnapshot'
   /api/proof-payments/order/{code}:
     get:
       responses:
@@ -30910,25 +31079,25 @@ paths:
         - name: creationTimeFrom
           in: query
           description: Export credit notes created after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: creationTimeTo
           in: query
           description: Export credit notes created before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeFrom
           in: query
           description: Export credit notes updated after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeTo
           in: query
           description: Export credit notes updated before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: codeFrom
@@ -31030,7 +31199,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/creditNoteSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/creditNoteSnapshot'
   /api/credit-notes/{code}:
     get:
       responses:
@@ -32371,6 +32540,516 @@ paths:
         - $ref: '#/components/parameters/DefaultItemsPerPageParameter'
         - $ref: '#/components/parameters/DefaultPageParameter'
         - $ref: '#/components/parameters/DefaultContentType'
+  /api/eet/records:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - records
+                      - paginator
+                    properties:
+                      records:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required:
+                            - id
+                            - receiptNumber
+                            - receiptedAt
+                            - deviceId
+                            - premisesId
+                            - evidenceUnitId
+                            - eic
+                            - environment
+                            - isLegallyValid
+                            - state
+                            - attempts
+                            - lastAttemptAt
+                            - nextAttemptAt
+                            - deadlineAt
+                            - deadlineMissedAt
+                            - pok
+                            - confirmedAt
+                            - lastError
+                            - warnings
+                            - price
+                            - sourceCurrency
+                            - source
+                            - orderCode
+                            - invoiceCode
+                            - creditNoteCode
+                            - paymentMethodGuid
+                            - adminUserId
+                            - transactionId
+                            - creationTime
+                          properties:
+                            id:
+                              type: integer
+                              description: EET record identifier
+                              examples:
+                                - 1024
+                            receiptNumber:
+                              type: string
+                              description: receipt number sent to the tax administration
+                              examples:
+                                - '2026000123'
+                            receiptedAt:
+                              $ref: '#/components/schemas/typeDateTime'
+                              description: >-
+                                time of the sale, in ISO 8601 format, with the
+                                UTC offset the receipt was issued with
+                            deviceId:
+                              type: string
+                              description: >-
+                                cash desk identifier sent to the tax
+                                administration
+                              examples:
+                                - POKLADNA01
+                            premisesId:
+                              type: integer
+                              description: >-
+                                premises identifier assigned by the tax
+                                administration
+                              examples:
+                                - 141
+                            evidenceUnitId:
+                              type: integer
+                              description: >-
+                                identifier of the e-shop's EET evidence unit the
+                                receipt was sent with
+                              examples:
+                                - 3
+                            eic:
+                              type: string
+                              description: tax identification number of the taxpayer
+                              examples:
+                                - CZ00000019
+                            environment:
+                              type: string
+                              enum:
+                                - playground
+                                - production
+                              description: >-
+                                EET environment the record was sent to. A record
+                                sent to `playground` is a test and is never
+                                legally valid.
+                              examples:
+                                - production
+                            isLegallyValid:
+                              type: boolean
+                              description: >-
+                                `true` only when the tax administration
+                                confirmed the record in the `production`
+                                environment. A playground confirmation is never
+                                legally valid.
+                              examples:
+                                - true
+                            state:
+                              type: string
+                              enum:
+                                - pending
+                                - sending
+                                - registered
+                                - rejected
+                                - failed
+                              description: >-
+                                delivery state. `pending` and `sending` are
+                                still waiting for the tax administration's
+                                answer; `registered` was confirmed (see `pok`);
+                                `rejected` was refused by the tax
+                                administration; `failed` could not be delivered
+                                (see `lastError`).
+                              examples:
+                                - registered
+                            attempts:
+                              type: integer
+                              description: number of sending attempts so far
+                              examples:
+                                - 1
+                            lastAttemptAt:
+                              $ref: '#/components/schemas/typeDateTimeNullable'
+                              description: >-
+                                time of the last sending attempt, in ISO 8601
+                                format (can be `null`)
+                            nextAttemptAt:
+                              $ref: '#/components/schemas/typeDateTimeNullable'
+                              description: >-
+                                time of the next scheduled sending attempt, in
+                                ISO 8601 format (can be `null`)
+                            deadlineAt:
+                              $ref: '#/components/schemas/typeDateTime'
+                              description: >-
+                                legal deadline for sending the record, in ISO
+                                8601 format
+                            deadlineMissedAt:
+                              $ref: '#/components/schemas/typeDateTimeNullable'
+                              description: >-
+                                time the legal sending deadline was found to be
+                                missed, in ISO 8601 format (`null` when the
+                                deadline was not missed)
+                            pok:
+                              type:
+                                - string
+                                - 'null'
+                              description: >-
+                                confirmation code (POK) returned by the tax
+                                administration when it registered the record
+                                (can be `null`)
+                              examples:
+                                - 987a6be5-6af5-44f3-b4fc-987654321000-02
+                            confirmedAt:
+                              $ref: '#/components/schemas/typeDateTimeNullable'
+                              description: >-
+                                time the tax administration confirmed the
+                                record, in ISO 8601 format (can be `null`)
+                            lastError:
+                              type:
+                                - object
+                                - 'null'
+                              additionalProperties: false
+                              required:
+                                - code
+                                - message
+                              description: >-
+                                last error returned for the record (can be
+                                `null`)
+                              properties:
+                                code:
+                                  type: integer
+                                  description: >-
+                                    error code. Codes from -999 to 999 come from
+                                    the tax administration; codes below -1000
+                                    are raised on the e-shop's side before or
+                                    around sending (certificate, transport,
+                                    malformed response, ...).
+                                  examples:
+                                    - 4
+                                message:
+                                  type:
+                                    - string
+                                    - 'null'
+                                  description: error message (can be `null`)
+                                  examples:
+                                    - Neplatny podpis SOAP zpravy
+                            warnings:
+                              type: array
+                              description: warnings attached to the record
+                              items:
+                                type: object
+                                additionalProperties: false
+                                required:
+                                  - code
+                                  - message
+                                  - origin
+                                properties:
+                                  code:
+                                    type: integer
+                                    description: warning code
+                                    examples:
+                                      - 1
+                                  message:
+                                    type: string
+                                    description: warning message
+                                    examples:
+                                      - >-
+                                        DIC poplatnika v datove zprave se
+                                        neshoduje s DIC v certifikatu
+                                  origin:
+                                    type: string
+                                    enum:
+                                      - local
+                                      - response
+                                    description: >-
+                                      `local` when the warning was raised before
+                                      sending, `response` when it came from the
+                                      tax administration
+                                    examples:
+                                      - response
+                            price:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - currencyCode
+                                - total
+                                - amountForLaterDrawdown
+                                - drawdownOrSettlement
+                              description: >-
+                                amounts sent to the tax administration, always
+                                in CZK
+                              properties:
+                                currencyCode:
+                                  $ref: '#/components/schemas/typeCurrencyCode'
+                                  description: always `CZK`
+                                total:
+                                  $ref: '#/components/schemas/typePrice'
+                                  description: total amount of the sale
+                                amountForLaterDrawdown:
+                                  $ref: '#/components/schemas/typePriceNullable'
+                                  description: >-
+                                    amount intended for later drawdown (can be
+                                    `null`)
+                                drawdownOrSettlement:
+                                  $ref: '#/components/schemas/typePriceNullable'
+                                  description: >-
+                                    amount of a drawdown or settlement (can be
+                                    `null`)
+                            sourceCurrency:
+                              type:
+                                - object
+                                - 'null'
+                              additionalProperties: false
+                              required:
+                                - currencyCode
+                                - amount
+                                - exchangeRate
+                              description: >-
+                                original amount of a sale made in a currency
+                                other than CZK (`null` for CZK sales)
+                              properties:
+                                currencyCode:
+                                  $ref: '#/components/schemas/typeCurrencyCode'
+                                  examples:
+                                    - EUR
+                                amount:
+                                  $ref: '#/components/schemas/typePrice'
+                                  description: amount of the sale in the source currency
+                                  examples:
+                                    - '40.00'
+                                exchangeRate:
+                                  type:
+                                    - string
+                                    - 'null'
+                                  pattern: ^[0-9]+\.[0-9]{9}$
+                                  description: >-
+                                    exchange rate from the source currency to
+                                    CZK used for the receipt (can be `null`)
+                                  examples:
+                                    - '25.125000000'
+                            source:
+                              type: string
+                              enum:
+                                - cash_register
+                                - pos_terminal
+                                - eshop
+                                - manual
+                                - api
+                              description: where the receipt originated
+                              examples:
+                                - cash_register
+                            orderCode:
+                              type:
+                                - string
+                                - 'null'
+                              description: >-
+                                order code (can be `null`). Caution! This does
+                                not have to be just a number, it can also
+                                contain letters, a dash, etc.
+                              examples:
+                                - '2026000017'
+                            invoiceCode:
+                              type:
+                                - string
+                                - 'null'
+                              description: >-
+                                invoice code (can be `null`). Caution! This does
+                                not have to be just a number, it can also
+                                contain letters, a dash, etc.
+                              examples:
+                                - '2026200011'
+                            creditNoteCode:
+                              type:
+                                - string
+                                - 'null'
+                              description: >-
+                                credit note code (can be `null`). Caution! This
+                                does not have to be just a number, it can also
+                                contain letters, a dash, etc.
+                              examples:
+                                - '0000000006'
+                            paymentMethodGuid:
+                              $ref: '#/components/schemas/typeGuidNullable'
+                              description: payment method identifier (can be `null`)
+                            adminUserId:
+                              type:
+                                - integer
+                                - 'null'
+                              description: >-
+                                identifier of the administrator who issued the
+                                receipt (can be `null`)
+                              examples:
+                                - 12
+                            transactionId:
+                              type:
+                                - string
+                                - 'null'
+                              description: payment transaction identifier (can be `null`)
+                              examples:
+                                - TX-2026-000123
+                            creationTime:
+                              $ref: '#/components/schemas/typeDateTime'
+                              description: time the record was created, in ISO 8601 format
+                      paginator:
+                        $ref: '#/components/schemas/paginator'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+                required:
+                  - data
+                  - errors
+                  - metadata
+                additionalProperties: false
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: invalid-parameter
+                    message: Invalid "states" parameter value "lost".
+                    instance: states
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: missing-module
+                    message: Method requires active eetV2 module in eshop.
+                    instance: eetV2
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+      summary: List of EET records
+      operationId: getListOfEetRecords
+      description: >-
+        Returns the receipts sent to the EET evidence (sales registration),
+        newest receipt first, with their delivery state. All filters are
+        optional and are combined with AND.
+
+
+        The list supports [Paging](#section/basic-principles/paging). The
+        endpoint requires the active `eetV2` module in the e-shop; records stay
+        listed even after the EET evidence is switched off in the e-shop
+        settings.
+      tags:
+        - EET
+      parameters:
+        - name: receiptedAtFrom
+          in: query
+          description: |-
+            time of the sale, in ISO 8601 format, lower limit (inclusive).
+            Optional.
+          example: 2026-10-01T00:00:00+0200
+          schema:
+            type: string
+        - name: receiptedAtTo
+          in: query
+          description: >-
+            time of the sale, in ISO 8601 format, upper limit (inclusive). Must
+            not
+
+            be earlier than `receiptedAtFrom`. Optional.
+          example: 2026-10-31T23:59:59+0100
+          schema:
+            type: string
+        - name: states
+          in: query
+          description: >-
+            filtering according to delivery state; comma-separated list, a
+            record
+
+            matches any of the given states. Allowed values: `pending`,
+            `sending`,
+
+            `registered`, `rejected`, `failed`. Optional.
+          example: rejected,failed
+          schema:
+            type: string
+        - name: source
+          in: query
+          description: filtering according to where the receipt originated. Optional.
+          example: cash_register
+          schema:
+            type: string
+            enum:
+              - cash_register
+              - pos_terminal
+              - eshop
+              - manual
+              - api
+        - name: evidenceUnitId
+          in: query
+          description: filtering according to EET evidence unit identifier. Optional.
+          example: 3
+          schema:
+            type: integer
+        - name: deviceId
+          in: query
+          description: filtering according to cash desk identifier, exact match. Optional.
+          example: POKLADNA01
+          schema:
+            type: string
+        - name: paymentMethodGuid
+          in: query
+          description: >-
+            filtering according to payment method identifier. An unknown
+            identifier
+
+            returns an empty list. Optional.
+          example: 1b02cb8e-d7b5-11e0-9a5c-feab5ed617ed
+          schema:
+            type: string
+        - name: adminUserId
+          in: query
+          description: filtering according to administrator identifier. Optional.
+          example: 12
+          schema:
+            type: integer
+        - name: orderCode
+          in: query
+          description: filtering according to order code, exact match. Optional.
+          example: '2026000017'
+          schema:
+            type: string
+        - $ref: '#/components/parameters/DefaultItemsPerPageParameter'
+        - $ref: '#/components/parameters/DefaultPageParameter'
+        - $ref: '#/components/parameters/DefaultContentType'
   /api/delivery-notes:
     get:
       responses:
@@ -32472,25 +33151,25 @@ paths:
         - name: creationTimeFrom
           in: query
           description: filtering delivery notes created after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: creationTimeTo
           in: query
           description: filtering delivery notes created before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeFrom
           in: query
           description: filtering delivery notes updated after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeTo
           in: query
           description: filtering delivery notes updated before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: customerGuid
@@ -32625,25 +33304,25 @@ paths:
         - name: creationTimeFrom
           in: query
           description: Export delivery notes created after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: creationTimeTo
           in: query
           description: Export delivery notes created before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeFrom
           in: query
           description: Export delivery notes updated after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeTo
           in: query
           description: Export delivery notes updated before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: codeFrom
@@ -32684,7 +33363,7 @@ paths:
             type: boolean
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/deliveryNoteSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/deliveryNoteSnapshot'
   /api/delivery-notes/{code}:
     get:
       responses:
@@ -33955,13 +34634,26 @@ paths:
                   metadata:
                     $ref: '#/components/schemas/Metadata'
               example:
+                data: null
                 errors:
                   - errorCode: unknown-product
                     message: Product "001-non-exists" does not exist. Skipped.
                     instance: 001-non-exist
-                  - errorCode: unknown-product
-                    message: Product "002-non-exists" does not exist. Skipped.
-                    instance: 002-non-exist
+                  - errorCode: stock-change-not-allowed
+                    message: >-
+                      Stock change not allowed for product set "002-set".
+                      Skipped.
+                    instance: 002-set
+                  - errorCode: invalid-request-data
+                    message: >-
+                      New stock amount is out of range for product "003".
+                      Skipped.
+                    instance: '003'
+                  - errorCode: unknown-error
+                    message: Some error occurred for product "004". Skipped.
+                    instance: '004'
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
         '400':
           description: Bad Request
           content:
@@ -33980,62 +34672,138 @@ paths:
               example:
                 data: null
                 errors:
+                  - errorCode: invalid-parameter
+                    message: Payload cannot be empty. No data to update.
+                    instance: payload
                   - errorCode: unknown-product
-                    message: Product "82" does not exist. Skipped.
-                    instance: '82'
+                    message: Product "81" does not exist. Skipped.
+                    instance: '81'
                   - errorCode: stock-change-not-allowed
                     message: |-
                       Stock change not allowed for product set "82".
                       Skipped.
                     instance: '82'
+                  - errorCode: invalid-request-data
+                    message: >-
+                      New stock amount is out of range for product "83".
+                      Skipped.
+                    instance: '83'
+                  - errorCode: unknown-error
+                    message: Some error occurred for product "84". Skipped.
+                    instance: '84'
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+        '413':
+          description: Payload Too Large
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: payload-too-large
+                    message: >-
+                      Payload is too large. Maximum is 300 changes in one
+                      request.
+                    instance: payload
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
       summary: Update quantity in stock
       operationId: updateQuantityInStock
-      description: |-
+      description: >-
         Endpoint enables the quantity of product in stock (relative and
+
         absolute) to be changed. Within a call, the update
 
+
         of multiple products at once can be requested (max. 300
+
         products/variants).
 
 
+
+        An empty payload is rejected with `400 BAD REQUEST`
+        (`invalid-parameter`).
+
+        More than 300 items in one request are rejected with `413 PAYLOAD TOO
+        LARGE`
+
+        (`payload-too-large`).
+
+
+
         In case an error occurs for one of the records, the correct records will
+
         be updated, the response will be `200 OK`
 
+
         and there will be records in the `errors` array for each failed record.
+
         If all records are incorrect, the response
 
-        code will be `400 BAD REQUEST` instead.
+
+        code will be `400 BAD REQUEST` instead. Per-record error codes are
+
+        `unknown-product`, `stock-change-not-allowed` (product sets),
+
+        `invalid-request-data` (new amount out of range) and `unknown-error`.
+
 
 
         Item `productCode` is mandatory. Then one of the three items has to be
+
         provided:
 
 
+
         - `amountChange` to increase or decrease amount available for
+
         ordering/physically on stock (relative change)
+
 
 
         - `quantity` to set amount available for ordering (absolute amount)
 
 
+
         - `realStock` to set amount physically stored in a warehouse (absolute
+
         amount)
 
 
+
         The difference between `quantity` and `realStock` is amount of goods
+
         requested by the pending orders (so called "claim").
+
 
 
         `amount for ordering` = `realStock` - `claim`
 
 
+
         The claim cannot be changed explicitly, it is updated when a new order
+
         is submitted or an order is sent out. Please note,
 
+
         that the stock amount cannot be changed for product sets, where the
+
         amount is calculated dynamically from the individual
 
+
         products in the set. Trying to change the amount of product set will
+
         result in an error.
       tags:
         - Stocks
@@ -34223,7 +34991,9 @@ paths:
                               type:
                                 - string
                                 - 'null'
-                              description: stock position.
+                              description: >-
+                                stock position. `null` when the Stock module is
+                                not active.
                               examples:
                                 - A1
                             changeTime:
@@ -34242,6 +35012,31 @@ paths:
                   - errors
                   - metadata
                 additionalProperties: false
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: invalid-parameter
+                    message: >-
+                      Invalid "changedFrom" parameter. Guaranteed history is 30
+                      days. You requested history from 45 days!
+                    instance: changedFrom
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
         '404':
           description: Not Found
           content:
@@ -34324,7 +35119,14 @@ paths:
 
                                          
             It support maximum of 30 days in history. (optional, string). ISO
-            8601 format ("2017-12-12T22:08:01+0100"). Optional.
+            8601 format ("2017-12-12T22:08:01+0100"). Optional. A value older
+            than 30 days is rejected with `400` `invalid-parameter`.
+          schema:
+            type: string
+        - name: include
+          in: query
+          description: Optional parts of response. Supported value is `changeTime`.
+          example: changeTime
           schema:
             type: string
         - name: itemsPerPage
@@ -34430,6 +35232,20 @@ paths:
           schema:
             type: integer
         - $ref: '#/components/parameters/DefaultPageParameter'
+        - name: language
+          in: query
+          description: >-
+            Language of the translatable fields in the response (e.g. `cs`). If
+            not provided,
+
+            the default language of the e-shop is used. Requires the "Foreign
+            Languages" module;
+
+            without it the request fails with the `missing-module` error.
+          required: false
+          example: cs
+          schema:
+            type: string
         - $ref: '#/components/parameters/DefaultContentType'
     post:
       responses:
@@ -34451,6 +35267,34 @@ paths:
                   - errors
                   - metadata
                 additionalProperties: false
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: invalid-request-data
+                    message: >-
+                      Invalid "indexName" value. Expected value of URL address
+                      part.
+                    instance: integration-call
+                  - errorCode: invalid-request-data
+                    message: Value "----" is not a valid e-mail address
+                    instance: data.contactEmail
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
       summary: Creation of brand
       operationId: createBrand
       description: ''
@@ -34520,7 +35364,11 @@ paths:
       parameters:
         - name: code
           in: path
-          description: brand GUID
+          description: >-
+            Brand GUID or brand code (`indexName`). The `brand:*` webhooks send
+            the
+
+            brand code as `eventInstance`, so it can be passed here directly.
           required: true
           example: 1e3f3f3f-3f3f-63ca-b93f-02423f1f0005
           schema:
@@ -34569,6 +35417,34 @@ paths:
                     $ref: '#/components/schemas/Errors'
                   metadata:
                     $ref: '#/components/schemas/Metadata'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: invalid-request-data
+                    message: >-
+                      Invalid "indexName" value. Expected value of URL address
+                      part.
+                    instance: integration-call
+                  - errorCode: invalid-request-data
+                    message: Value "----" is not a valid e-mail address
+                    instance: data.contactEmail
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
       summary: Update of brand
       operationId: updateBrand
       description: ''
@@ -34577,7 +35453,11 @@ paths:
       parameters:
         - name: code
           in: path
-          description: brand GUID
+          description: >-
+            Brand GUID or brand code (`indexName`). The `brand:*` webhooks send
+            the
+
+            brand code as `eventInstance`, so it can be passed here directly.
           required: true
           example: 1e3f3f3f-3f3f-63ca-b93f-02423f1f0005
           schema:
@@ -34790,7 +35670,11 @@ paths:
       parameters:
         - name: code
           in: path
-          description: brand GUID
+          description: >-
+            Brand GUID or brand code (`indexName`). The `brand:*` webhooks send
+            the
+
+            brand code as `eventInstance`, so it can be passed here directly.
           required: true
           example: 1e3f3f3f-3f3f-63ca-b93f-02423f1f0005
           schema:
@@ -35048,7 +35932,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/abandonedCartSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/abandonedCartSnapshot'
   /api/customers:
     get:
       responses:
@@ -35536,7 +36420,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/customerSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/customerSnapshot'
   /api/customers/{guid}:
     get:
       responses:
@@ -36717,6 +37601,9 @@ paths:
                                 - 1
                             rating:
                               type: string
+                              enum:
+                                - positive
+                                - negative
                               description: type of rating
                               examples:
                                 - positive
@@ -36812,6 +37699,9 @@ paths:
                               - 1
                           rating:
                             type: string
+                            enum:
+                              - positive
+                              - negative
                             description: type of rating
                             examples:
                               - positive
@@ -36887,8 +37777,9 @@ paths:
                       properties:
                         rating:
                           type: string
-                          minLength: 1
-                          maxLength: 255
+                          enum:
+                            - positive
+                            - negative
                           description: type of rating
                           examples:
                             - negative
@@ -36929,6 +37820,9 @@ paths:
                               - 1
                           rating:
                             type: string
+                            enum:
+                              - positive
+                              - negative
                             description: type of rating
                             examples:
                               - positive
@@ -37020,6 +37914,9 @@ paths:
                               - 1
                           rating:
                             type: string
+                            enum:
+                              - positive
+                              - negative
                             description: type of rating
                             examples:
                               - positive
@@ -37097,8 +37994,9 @@ paths:
                   properties:
                     rating:
                       type: string
-                      minLength: 1
-                      maxLength: 255
+                      enum:
+                        - positive
+                        - negative
                       description: type of rating
                       examples:
                         - negative
@@ -37507,6 +38405,20 @@ paths:
       tags:
         - Customer groups
       parameters:
+        - name: language
+          in: query
+          description: >-
+            Language of the translatable fields in the response (e.g. `cs`). If
+            not provided,
+
+            the default language of the e-shop is used. Requires the "Foreign
+            Languages" module;
+
+            without it the request fails with the `missing-module` error.
+          required: false
+          example: cs
+          schema:
+            type: string
         - $ref: '#/components/parameters/DefaultContentType'
     post:
       responses:
@@ -38317,10 +39229,7 @@ paths:
                                 - common-header
                                 - common-footer
                                 - order-confirmed
-                              description: >-
-                                (location) code identifier. Possible values:
-                                `common-header`, `common-footer`,
-                                `order-confirmed`
+                              description: Location code identifier
                               examples:
                                 - common-header
                             html:
@@ -38377,10 +39286,7 @@ paths:
                                 - common-header
                                 - common-footer
                                 - order-confirmed
-                              description: >-
-                                (location) code identifier. Possible values:
-                                `common-header`, `common-footer`,
-                                `order-confirmed`
+                              description: Location code identifier
                               examples:
                                 - common-header
                             html:
@@ -38415,11 +39321,6 @@ paths:
               example:
                 data: null
                 errors:
-                  - errorCode: template-include-location-invalid
-                    message: |-
-                      Invalid location code: does-not-exist. Possible values:
-                      common-header, common-footer, order-confirmed
-                    instance: location
                   - errorCode: invalid-parameter
                     message: Snippets cannot be empty. No data to update.
                     instance: payload
@@ -38446,6 +39347,34 @@ paths:
                   - errorCode: payload-too-large
                     message: Payload is too large. Maximum is 3 changes in one request.
                     instance: payload
+                metadata:
+                  requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type:
+                      - object
+                      - 'null'
+                  errors:
+                    $ref: '#/components/schemas/Errors'
+                  metadata:
+                    $ref: '#/components/schemas/Metadata'
+              example:
+                data: null
+                errors:
+                  - errorCode: invalid-request-data
+                    message: >-
+                      Does not have a value in the enumeration
+                      ["common-header","common-footer","order-confirmed"]
+                    instance: data.snippets[0].location
+                  - errorCode: invalid-request-data
+                    message: Must be at most 8192 characters long
+                    instance: data.snippets[0].html
                 metadata:
                   requestId: 019c8c34-64f3-7328-af43-bf1e34fa39d7
       summary: Inserting and editing codes
@@ -38488,10 +39417,11 @@ paths:
                         properties:
                           location:
                             type: string
-                            description: >-
-                              (location) code identifier. Possible values:
-                              `common-header`, `common-footer`,
-                              `order-confirmed`
+                            enum:
+                              - common-header
+                              - common-footer
+                              - order-confirmed
+                            description: Location code identifier
                             examples:
                               - common-header
                           html:
@@ -44214,13 +45144,13 @@ paths:
         - name: creationTimeFrom
           in: query
           description: Export discount coupons created after date
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: creationTimeTo
           in: query
           description: Export discount coupons created before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: discountType
@@ -44272,7 +45202,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/discountCouponSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/discountCouponSnapshot'
   /api/discount-coupons/{code}:
     get:
       responses:
@@ -46809,6 +47739,8 @@ paths:
                               - 2
                           discountType:
                             type: string
+                            enum:
+                              - percentual
                             description: Type of the discount.
                             examples:
                               - percentual
@@ -46999,7 +47931,7 @@ paths:
             type: boolean
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/quantityDiscountSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/quantityDiscountSnapshot'
   /api/quantity-discounts/{id}:
     get:
       responses:
@@ -47262,6 +48194,8 @@ paths:
                               - 2
                           discountType:
                             type: string
+                            enum:
+                              - percentual
                             description: Type of the discount.
                             examples:
                               - percentual
@@ -47817,25 +48751,25 @@ paths:
         - name: publishDateFrom
           in: query
           description: Export articles published after given datetime
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: publishDateTo
           in: query
           description: Export articles published before given datetime
-          example: 2014-11-05T00:00:00%2B0000
+          example: '2014-11-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeDateFrom
           in: query
           description: Export articles updated after given datetime
-          example: 2014-09-05T00:00:00%2B0000
+          example: '2014-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeDateTo
           in: query
           description: Export articles updated before given datetime
-          example: 2014-11-05T00:00:00%2B0000
+          example: '2014-11-05T00:00:00+00:00'
           schema:
             type: string
         - name: visible
@@ -47846,7 +48780,7 @@ paths:
             type: boolean
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/articleSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/articleSnapshot'
   /api/articles/{articleId}:
     get:
       responses:
@@ -51118,19 +52052,19 @@ paths:
         - name: dateFrom
           in: query
           description: Filter reviews with creation date after date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: dateTo
           in: query
           description: Filter reviews with creation date before date
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: changeTimeFrom
           in: query
           description: Filter reviews changed after this date (included)
-          example: 2019-09-05T00:00:00%2B0000
+          example: '2019-09-05T00:00:00+00:00'
           schema:
             type: string
         - name: productGuid
@@ -51858,13 +52792,13 @@ paths:
         - name: dateFrom
           in: query
           description: Filter reviews with creation date after date.
-          example: 2019-09-05T00:00:00%2B0100
+          example: '2019-09-05T00:00:00+01:00'
           schema:
             type: string
         - name: dateTo
           in: query
           description: Filter reviews with creation date before date.
-          example: 2019-09-05T00:00:00%2B0100
+          example: '2019-09-05T00:00:00+01:00'
           schema:
             type: string
         - name: visible
@@ -52279,13 +53213,13 @@ paths:
         - name: dateFrom
           in: query
           description: Filter reviews with creation date after date.
-          example: 2019-09-05T00:00:00%2B0100
+          example: '2019-09-05T00:00:00+01:00'
           schema:
             type: string
         - name: dateTo
           in: query
           description: Filter reviews with creation date before date.
-          example: 2019-09-05T00:00:00%2B0100
+          example: '2019-09-05T00:00:00+01:00'
           schema:
             type: string
         - name: visible
@@ -52302,7 +53236,7 @@ paths:
             type: string
         - $ref: '#/components/parameters/DefaultContentType'
       x-shoptet-snapshot-endpoint: true
-      x-shoptet-response-ref: '#/definitions/reviewProjectSnapshot'
+      x-shoptet-response-ref: '#/components/schemas/reviewProjectSnapshot'
   /api/reviews/project/{reviewId}:
     patch:
       responses:
@@ -53862,6 +54796,12 @@ components:
         - indexName
         - description
         - brandWeb
+        - postalAddress
+        - contactEmail
+        - europeanResellerPostalAddress
+        - europeanResellerContactEmail
+        - manufacturingCompanyName
+        - europeanResellerManufacturingCompanyName
         - showInCategoriesMenu
         - showInBrandList
         - metaTitle
@@ -54197,6 +55137,10 @@ components:
             - 3
         status:
           type: string
+          enum:
+            - new
+            - success
+            - failed
           description: results of the last attempt to deliver the notification
           examples:
             - failed
@@ -54878,6 +55822,20 @@ components:
             - '159'
         itemType:
           type: string
+          enum:
+            - product
+            - bazar
+            - service
+            - shipping
+            - billing
+            - discount-coupon
+            - volume-discount
+            - gift
+            - gift-certificate
+            - generic-item
+            - product-set
+            - product-set-item
+            - deposit
           description: item type
           examples:
             - product
@@ -55083,6 +56041,20 @@ components:
             - '159'
         itemType:
           type: string
+          enum:
+            - product
+            - bazar
+            - service
+            - shipping
+            - billing
+            - discount-coupon
+            - volume-discount
+            - gift
+            - gift-certificate
+            - generic-item
+            - product-set
+            - product-set-item
+            - deposit
           description: item type
           examples:
             - product
@@ -55226,6 +56198,20 @@ components:
           description: global unique permanent product identifier
         itemType:
           type: string
+          enum:
+            - product
+            - bazar
+            - service
+            - shipping
+            - billing
+            - discount-coupon
+            - volume-discount
+            - gift
+            - gift-certificate
+            - generic-item
+            - product-set
+            - product-set-item
+            - deposit
           description: item type
           examples:
             - product
@@ -57769,8 +58755,8 @@ components:
         catalogueMapping:
           type: array
           description: >-
-            pairing to search engines such as Zboží, Heuréka, Google, etc. (can
-            be `null`)
+            pairing to search engines such as Zboží, Heuréka, Google, etc. Empty
+            when the category has no mapping
           items:
             type: object
             additionalProperties: false
@@ -57780,6 +58766,11 @@ components:
             properties:
               provider:
                 type: string
+                enum:
+                  - heureka
+                  - google
+                  - zbozi
+                  - glami
                 description: provider type
                 examples:
                   - heureka
@@ -57894,7 +58885,7 @@ components:
           description: >-
             defines users of the e-shop who can see the category - `all` = all
             (default), `registered` = registered users, `unregistered` =
-            non-registered users. Optional.
+            non-registered users, `admin-only` = administrators. Optional.
           examples:
             - all
         productOrdering:
@@ -58290,6 +59281,20 @@ components:
             - '12345678901234'
         itemType:
           type: string
+          enum:
+            - product
+            - bazar
+            - service
+            - shipping
+            - billing
+            - discount-coupon
+            - volume-discount
+            - gift
+            - gift-certificate
+            - generic-item
+            - product-set
+            - product-set-item
+            - deposit
           description: >-
             Order item type (product, service...). See also [Types of order
             items](#section/code-lists/types-of-order-items) code list.
@@ -61704,6 +62709,20 @@ components:
                   - 40/ZEL
               itemType:
                 type: string
+                enum:
+                  - product
+                  - bazar
+                  - service
+                  - shipping
+                  - billing
+                  - discount-coupon
+                  - volume-discount
+                  - gift
+                  - gift-certificate
+                  - generic-item
+                  - product-set
+                  - product-set-item
+                  - deposit
                 description: >-
                   Order item type (product, service...). See also [Types of
                   order items](#section/code-lists/types-of-order-items) code
@@ -64048,6 +65067,7 @@ x-tagGroups:
     tags:
       - Credit notes
       - Delivery notes
+      - EET
       - Invoices
       - Proforma invoices
       - Proof payments
